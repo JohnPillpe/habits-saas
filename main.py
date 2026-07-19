@@ -2,13 +2,14 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from database import get_db
+from database import get_db, Base, engine
 from models import Habit
 from schemas import HabitCreate, HabitResponse
 from services import habit_to_response, marcar_completado_hoy
 
 
 app = FastAPI(title="Seguimiento de Hábitos")
+Base.metadata.create_all(bind=engine)
 
 
 @app.get("/habits", response_model=list[HabitResponse])
