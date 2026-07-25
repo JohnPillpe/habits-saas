@@ -1,3 +1,10 @@
+from auth import (
+    hashear_password, verificar_password, crear_token, 
+    obtener_usuario_actual, oauth2_scheme
+)
+from schemas import UsuarioCreate, UsuarioLogin, UsuarioResponse
+from models import Usuario
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -9,56 +16,100 @@ from services import habit_to_response, marcar_completado_hoy
 
 
 app = FastAPI(title="Seguimiento de Hábitos")
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)   
 
-
-@app.get("/habits", response_model=list[HabitResponse])
-def listar_habitos(db: Session = Depends(get_db)):
-    habitos = db.query(Habit).order_by(Habit.creado_en.desc()).all()
-    return [habit_to_response(habito) for habito in habitos]
-
-
-@app.post("/habits", response_model=HabitResponse, status_code=201)
-def crear_habito(habito: HabitCreate, db: Session = Depends(get_db)):
-    nombre = habito.nombre.strip()
-
-    if not nombre:
-        raise HTTPException(
-            status_code=400,
-            detail="El nombre es obligatorio"
-        )
-
-    nuevo = Habit(
-        nombre=nombre,
-        descripcion=habito.descripcion.strip()
-        if habito.descripcion else None,
-    )
-
+@app.post("/register", response_model=UsuarioResponse, status_code=201)
+def registrar_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
+    # Verificar si el email ya existe
+    existe = db.query(Usuario).filter(Usuario.email == usuario.email).first()
+    if existe:
+        raise HTTPException(status_code=400, detail="Email ya registrado")
+    
+    # Crear nuevo usuario
+    hashed = hashear_password(usuario.password)
+    nuevo = Usuario(email=usuario.email, password_hash=hashed)
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
+    return nuevo
 
-    return habit_to_response(nuevo)
+@app.post("/login")
+def login(usuario: UsuarioLogin, db: Session = Depends(get_db)):
+    # Buscar usuario por email
+    db_usuario = db.query(Usuario).filter(Usuario.email == usuario.email).first()
+    if not db_usuario or not verificar_password(usuario.password, db_usuario.password_hash):
+        raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
+    
+    # Crear token
+    token = crear_token({"sub": db_usuario.email})
+    return {"access_token": token, "token_type": "bearer"}
 
 
-@app.post("/habits/{habito_id}/complete", response_model=HabitResponse)
-def completar_habito_hoy(
-    habito_id: int,
-    db: Session = Depends(get_db)
+@app.get("/habits", response_model=list[HabitResponse])
+def listar_habitos(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual)  # <-- AÑADE ESTO
 ):
-    habito = db.query(Habit).filter(Habit.id == habito_id).first()
+    habitos = db.query(Habit).filter(Habit.usuario_id == usuario.id).order_by(Habit.creado_en.desc()).all()
+    return [habit_to_response(habito) for habito in habitos]
 
+
+
+@app.post("/habits", response_model=HabitResponse, status_code=201)
+def crear_habito(
+    habito: HabitCreate, 
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual)  # <-- AÑADE ESTO
+):
+    nombre = habito.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="Nombre es obligatorio")
+    
+    nuevo_habito = Habit(
+        nombre=nombre, 
+        descripcion=habito.descripcion,
+        usuario_id=usuario.id  # <-- AÑADE ESTA LÍNEA
+    )
+    db.add(nuevo_habito)
+    db.commit()
+    db.refresh(nuevo_habito)
+    return habit_to_response(nuevo_habito)
+
+
+@app.post("/habits/{habito_id}/complete")
+def completar_habito(
+    habito_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual)  # <-- NUEVO: usuario autenticado
+):
+    # Buscar el hábito y verificar que pertenece al usuario actual
+    habito = db.query(Habit).filter(
+        Habit.id == habito_id,
+        Habit.usuario_id == usuario.id  # <-- FILTRO CLAVE
+    ).first()
+    
     if not habito:
-        raise HTTPException(
-            status_code=404,
-            detail="Hábito no encontrado"
-        )
-
-    marcar_completado_hoy(db, habito_id)
-
-    db.refresh(habito)
-
-    return habit_to_response(habito)
+        raise HTTPException(status_code=404, detail="Hábito no encontrado o no te pertenece")
+    
+    # Marcar como completado hoy (evitar duplicados)
+    hoy = date.today()
+    existe = db.query(Registro).filter(
+        Registro.habitos_id == habito.id,
+        Registro.fecha == hoy
+    ).first()
+    
+    if existe:
+        return {"message": "Ya completaste este hábito hoy"}
+    
+    nuevo_registro = Registro(
+        habitos_id=habito.id,
+        fecha=hoy,
+        completado=True
+    )
+    db.add(nuevo_registro)
+    db.commit()
+    
+    return {"message": "¡Hábito completado hoy!"}
 
 
 @app.get("/", response_class=HTMLResponse)

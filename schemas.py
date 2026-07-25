@@ -18,3 +18,19 @@ class HabitResponse(BaseModel):
     racha_actual: int
     total_completados: int
     ultimo_registro: str | None
+
+class UsuarioCreate(BaseModel):
+    email: str
+    password: str
+    
+class UsuarioLogin(BaseModel):
+    email: str
+    password: str
+
+class UsuarioResponse(BaseModel):
+    id: int
+    email: str
+    creado_en: datetime
+
+    class Config:
+        from_attributes = True
