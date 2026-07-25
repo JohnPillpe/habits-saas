@@ -22,7 +22,7 @@ from auth import (
 )
 
 
-app = FastAPI(title="Seguimiento de Hábitos")
+app = FastAPI(title="Seguimiento de Hábitos")   
 
 templates = Jinja2Templates(directory="templates")
 
@@ -178,23 +178,35 @@ def completar_habito(
         "message": "Hábito completado"
     }
 
+@app.delete("/habits/{habito_id}")
+def eliminar_habito(
+    habito_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual)
+):
 
-    nuevo_registro = Registro(
-        habitos_id=habito.id,
-        fecha=date.today(),
-        completado=True
-    )
+    habito = db.query(Habit).filter(
+        Habit.id == habito_id,
+        Habit.usuario_id == usuario.id
+    ).first()
+
+    if not habito:
+        raise HTTPException(
+            status_code=404,
+            detail="Hábito no encontrado"
+        )
 
 
-    db.add(nuevo_registro)
+    db.query(Registro).filter(
+        Registro.habitos_id == habito.id
+    ).delete()
+
+    db.delete(habito)
     db.commit()
 
-
     return {
-        "message": "Hábito completado"
-    }
-
-
+        "message": "Hábito eliminado"
+    }   
 
 
 

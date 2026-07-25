@@ -306,7 +306,13 @@ function renderHabitos(habitos) {
                     <button 
                     class="btn btn-success btn-sm btn-completar"
                     data-id="${habito.id}">
-                    ✅ Completar hoy
+                    ✅ Completar
+                    </button>
+
+                    <button
+                        class="btn btn-danger btn-sm btn-eliminar"
+                         data-id="${habito.id}">
+                        🗑️ Eliminar
                     </button>
                 </td>
             </tr>
@@ -327,6 +333,17 @@ function renderHabitos(habitos) {
         });
 
     });
+
+    document.querySelectorAll('.btn-eliminar')
+    .forEach(btn => {
+
+        btn.addEventListener('click', async () => {
+
+            await eliminarHabito(btn.dataset.id);
+
+        });
+
+    });
 }
 
         // Función auxiliar para escapar HTML (evita inyección)
@@ -340,21 +357,92 @@ function renderHabitos(habitos) {
         // ------------------------------------------------------------
         // 6. COMPLETAR HÁBITO
         // ------------------------------------------------------------
+        
         async function completarHoy(id) {
-            try {
-                const response = await apiFetch(`/habits/${id}/complete`, 'POST');
-                const data = await response.json();
-                if (response.ok) {
-                    showHabitMessage(data.message || '¡Hábito completado hoy!');
-                    cargarHabitos(); // Recargar la tabla
-                } else {
-                    showHabitMessage(data.detail || 'Error al completar', 'danger');
-                }
-            } catch (error) {
-                console.error('Error completando hábito:', error);
-                showHabitMessage('Error al completar el hábito', 'danger');
+
+try {
+
+    const response = await apiFetch(
+        `/habits/${id}/complete`,
+        "POST"
+    );
+
+    const data = await response.json();
+
+    if (response.ok) {
+
+        showHabitMessage(data.message);
+
+        cargarHabitos();
+
+    } else {
+
+        showHabitMessage(
+            data.detail,
+            "danger"
+        );
+
+    }
+
+} catch (error) {
+
+    console.error(error);
+
+    showHabitMessage(
+        "Error completando hábito",
+        "danger"
+    );
+
+}
+
+}
+        
+        async function eliminarHabito(id) {
+
+            const confirmar = confirm(
+             "¿Seguro que quieres eliminar este hábito?"
+            );
+
+            if (!confirmar) {
+            return;
             }
-        }
+
+        try {
+
+            const response = await apiFetch(
+                `/habits/${id}`,
+                "DELETE"
+             );
+
+                const data = await response.json();
+
+            if (response.ok) {
+
+                 showHabitMessage(data.message);
+
+                 cargarHabitos();
+
+            } else {
+
+                showHabitMessage(
+                data.detail,
+                "danger"
+        );
+
+    }
+
+} catch (error) {
+
+    console.error(error);
+
+    showHabitMessage(
+        "Error eliminando hábito",
+        "danger"
+    );
+
+}
+
+}
 
         // ------------------------------------------------------------
         // 7. CREAR NUEVO HÁBITO
