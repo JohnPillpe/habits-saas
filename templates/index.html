@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Hábitos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .auth-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .habits-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none !important;
+        }
+        .btn-completar {
+            transition: all 0.2s;
+        }
+        .btn-completar:hover {
+            transform: scale(1.05);
+        }
+        .alert-fixed {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+        }
+        .table th {
+            background-color: #e9ecef;
+        }
+        .badge-racha {
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- ============================================ -->
+        <!-- SECCIÓN DE AUTENTICACIÓN (login / registro)   -->
+        <!-- ============================================ -->
+        <div id="authSection" class="auth-section">
+            <h2 class="text-center mb-4">🔐 Accede a tus hábitos</h2>
+
+            <!-- Mensaje de error común -->
+            <div id="authError" class="alert alert-danger hidden" role="alert"></div>
+
+            <ul class="nav nav-tabs mb-3" id="authTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#loginPanel" type="button" role="tab">Iniciar sesión</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#registerPanel" type="button" role="tab">Registrarse</button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- Panel Login -->
+                <div class="tab-pane fade show active" id="loginPanel" role="tabpanel">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="loginEmail" placeholder="tu@email.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="loginPassword" placeholder="Contraseña" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Iniciar sesión</button>
+                    </form>
+                </div>
+
+                <!-- Panel Registro -->
+                <div class="tab-pane fade" id="registerPanel" role="tabpanel">
+                    <form id="registerForm">
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="registerEmail" placeholder="tu@email.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="registerPassword" placeholder="Mínimo 6 caracteres" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Registrarse</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- SECCIÓN DE HÁBITOS (solo visible con sesión) -->
+        <!-- ============================================ -->
+        <div id="habitsSection" class="habits-section hidden">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>📋 Mis Hábitos</h2>
+                <button id="logoutBtn" class="btn btn-outline-danger btn-sm">Cerrar sesión</button>
+            </div>
+
+            <!-- Mensajes de éxito/error -->
+            <div id="habitMessage" class="alert hidden" role="alert"></div>
+
+            <!-- Formulario para nuevo hábito -->
+            <form id="newHabitForm" class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" id="habitName" placeholder="Nombre del hábito" required>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="habitDescription" placeholder="Descripción (opcional)">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Añadir</button>
+                </div>
+            </form>
+
+            <!-- Tabla de hábitos -->
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead>
+                        <tr>
+                            <th>Hábito</th>
+                            <th>Descripción</th>
+                            <th>Racha</th>
+                            <th>Total días</th>
+                            <th>Último registro</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="habitsTableBody">
+                        <!-- Los hábitos se cargarán aquí con JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ============================================ -->
+    <!-- JAVASCRIPT PRINCIPAL                          -->
+    <!-- ============================================ -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ------------------------------------------------------------
+        // 1. REFERENCIAS A ELEMENTOS DEL DOM
+        // ------------------------------------------------------------
+        const authSection = document.getElementById('authSection');
+        const habitsSection = document.getElementById('habitsSection');
+        const authError = document.getElementById('authError');
+        const habitMessage = document.getElementById('habitMessage');
+
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const newHabitForm = document.getElementById('newHabitForm');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        const habitsTableBody = document.getElementById('habitsTableBody');
+
+        // ------------------------------------------------------------
+        // 2. UTILIDADES: mostrar/ocultar mensajes
+        // ------------------------------------------------------------
+        function showAuthError(msg) {
+            authError.textContent = msg;
+            authError.classList.remove('hidden');
+        }
+        function hideAuthError() {
+            authError.classList.add('hidden');
+        }
+
+        function showHabitMessage(msg, type = 'success') {
+            habitMessage.textContent = msg;
+            habitMessage.className = `alert alert-${type}`;
+            habitMessage.classList.remove('hidden');
+            setTimeout(() => habitMessage.classList.add('hidden'), 4000);
+        }
+
+        // ------------------------------------------------------------
+        // 3. GESTIÓN DE TOKEN
+        // ------------------------------------------------------------
+        function getToken() {
+            return localStorage.getItem('token');
+        }
+
+        function setToken(token) {
+            localStorage.setItem('token', token);
+        }
+
+        function removeToken() {
+            localStorage.removeItem('token');
+        }
+
+        function isAuthenticated() {
+            return !!getToken();
+        }
+
+        // ------------------------------------------------------------
+        // 4. FUNCIONES PARA LLAMAR A LA API (con token)
+        // ------------------------------------------------------------
+        async function apiFetch(endpoint, method = 'GET', body = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+            };
+            const options = {
+                method,
+                headers,
+            };
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            const response = await fetch(endpoint, options);
+            if (response.status === 401) {
+                // Token expirado o inválido: cerramos sesión
+                removeToken();
+                updateUI();
+                throw new Error('Sesión expirada. Inicia sesión nuevamente.');
+            }
+            return response;
+        }
+
+        // ------------------------------------------------------------
+        // 5. CARGAR Y RENDERIZAR HÁBITOS
+        // ------------------------------------------------------------
+        async function cargarHabitos() {
+    try {
+
+        const token = getToken();
+
+        const respuesta = await fetch("/habits", {
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+
+        if (respuesta.status === 401) {
+            removeToken();
+            updateUI();
+            return;
+        }
+
+
+        const habitos = await respuesta.json();
+
+        renderHabitos(habitos);
+
+
+    } catch (error) {
+        console.error("Error cargando hábitos:", error);
+        showHabitMessage(
+            "Error cargando hábitos",
+            "danger"
+        );
+    }
+}
+
+
+function renderHabitos(habitos) {
+
+    if (habitos.length === 0) {
+        habitsTableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted py-3">
+                    No tienes hábitos aún. ¡Añade uno!
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+
+    let html = '';
+
+    habitos.forEach(habito => {
+
+        html += `
+            <tr>
+                <td><strong>${escapeHtml(habito.nombre)}</strong></td>
+                <td>${escapeHtml(habito.descripcion || '—')}</td>
+                <td>
+                    ${habito.racha_actual ?? 0}
+                </td>
+                <td>
+                    ${habito.total_completados ?? 0}
+                </td>
+                <td>
+                    ${habito.ultimo_registro || 'Nunca'}
+                </td>
+                <td>
+                    <button 
+                    class="btn btn-success btn-sm btn-completar"
+                    data-id="${habito.id}">
+                    ✅ Completar hoy
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+
+    habitsTableBody.innerHTML = html;
+
+
+    document.querySelectorAll('.btn-completar')
+    .forEach(btn => {
+
+        btn.addEventListener('click', async () => {
+
+            await completarHoy(btn.dataset.id);
+
+        });
+
+    });
+}
+
+        // Función auxiliar para escapar HTML (evita inyección)
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ------------------------------------------------------------
+        // 6. COMPLETAR HÁBITO
+        // ------------------------------------------------------------
+        async function completarHoy(id) {
+            try {
+                const response = await apiFetch(`/habits/${id}/complete`, 'POST');
+                const data = await response.json();
+                if (response.ok) {
+                    showHabitMessage(data.message || '¡Hábito completado hoy!');
+                    cargarHabitos(); // Recargar la tabla
+                } else {
+                    showHabitMessage(data.detail || 'Error al completar', 'danger');
+                }
+            } catch (error) {
+                console.error('Error completando hábito:', error);
+                showHabitMessage('Error al completar el hábito', 'danger');
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 7. CREAR NUEVO HÁBITO
+        // ------------------------------------------------------------
+        newHabitForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('habitName').value.trim();
+            const descripcion = document.getElementById('habitDescription').value.trim();
+
+            if (!nombre) {
+                showHabitMessage('El nombre es obligatorio', 'warning');
+                return;
+            }
+
+            try {
+                const response = await apiFetch('/habits', 'POST', { nombre, descripcion });
+                if (response.ok) {
+                    const nuevo = await response.json();
+                    showHabitMessage(`Hábito "${nuevo.nombre}" añadido`);
+                    newHabitForm.reset();
+                    cargarHabitos();
+                } else {
+                    const error = await response.json();
+                    showHabitMessage(error.detail || 'Error al crear hábito', 'danger');
+                }
+            } catch (error) {
+                console.error('Error creando hábito:', error);
+                showHabitMessage('Error al crear el hábito', 'danger');
+            }
+        });
+
+        // ------------------------------------------------------------
+        // 8. LOGIN
+        // ------------------------------------------------------------
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAuthError();
+
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            if (!email || !password) {
+                showAuthError('Email y contraseña son obligatorios');
+                return;
+            }
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setToken(data.access_token);
+                    loginForm.reset();
+                    updateUI();
+                    cargarHabitos();
+                } else {
+                    const error = await response.json();
+                    showAuthError(error.detail || 'Error al iniciar sesión');
+                }
+            } catch (error) {
+                console.error('Error en login:', error);
+                showAuthError('Error de conexión con el servidor');
+            }
+        });
+
+        // ------------------------------------------------------------
+        // 9. REGISTRO
+        // ------------------------------------------------------------
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAuthError();
+
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value.trim();
+
+            if (!email || !password) {
+                showAuthError('Email y contraseña son obligatorios');
+                return;
+            }
+            if (password.length < 6) {
+                showAuthError('La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    showAuthError('Registro exitoso. Ahora inicia sesión.');
+                    registerForm.reset();
+                    // Cambiar a la pestaña de login
+                    const loginTab = document.getElementById('login-tab');
+                    const bsTab = new bootstrap.Tab(loginTab);
+                    bsTab.show();
+                } else {
+                    const error = await response.json();
+                    showAuthError(error.detail || 'Error al registrarse');
+                }
+            } catch (error) {
+                console.error('Error en registro:', error);
+                showAuthError('Error de conexión con el servidor');
+            }
+        });
+
+        // ------------------------------------------------------------
+        // 10. CERRAR SESIÓN
+        // ------------------------------------------------------------
+        logoutBtn.addEventListener('click', () => {
+            removeToken();
+            updateUI();
+        });
+
+        // ------------------------------------------------------------
+        // 11. ACTUALIZAR LA INTERFAZ SEGÚN AUTENTICACIÓN
+        // ------------------------------------------------------------
+        function updateUI() {
+            if (isAuthenticated()) {
+                authSection.classList.add('hidden');
+                habitsSection.classList.remove('hidden');
+                // Cargar hábitos al mostrar la sección
+                cargarHabitos();
+            } else {
+                authSection.classList.remove('hidden');
+                habitsSection.classList.add('hidden');
+                habitsTableBody.innerHTML = ''; // Limpiar tabla
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 12. INICIO
+        // ------------------------------------------------------------
+        // Al cargar la página, comprobar si hay token
+        updateUI();
+
+        console.log('✅ App de hábitos cargada correctamente');
+        console.log('🔐 Autenticado:', isAuthenticated());
+    </script>
+
+</body>
+</html>

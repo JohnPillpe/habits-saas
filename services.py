@@ -10,9 +10,14 @@ def calcular_racha(fechas_completadas: set[date]) -> int:
         return 0
 
     hoy = date.today()
-    actual = hoy if hoy in fechas_completadas else hoy - timedelta(days=1)
+
+    if hoy in fechas_completadas:
+        actual = hoy
+    else:
+        actual = hoy - timedelta(days=1)
 
     racha = 0
+
     while actual in fechas_completadas:
         racha += 1
         actual -= timedelta(days=1)
@@ -21,22 +26,28 @@ def calcular_racha(fechas_completadas: set[date]) -> int:
 
 
 def obtener_estadisticas_habito(habito: Habit) -> tuple[int, int]:
+
     fechas_completadas = {
         registro.fecha
         for registro in habito.registros
         if registro.completado
     }
+
     total = len(fechas_completadas)
+
     racha = calcular_racha(fechas_completadas)
+
     return racha, total
 
 
 def habit_to_response(habito: Habit) -> dict:
+
     racha, total = obtener_estadisticas_habito(habito)
 
     ultimo = None
 
     if habito.registros:
+
         fechas = [
             registro.fecha
             for registro in habito.registros
@@ -45,6 +56,7 @@ def habit_to_response(habito: Habit) -> dict:
 
         if fechas:
             ultimo = max(fechas).isoformat()
+
 
     return {
         "id": habito.id,
@@ -58,11 +70,18 @@ def habit_to_response(habito: Habit) -> dict:
 
 
 def marcar_completado_hoy(db: Session, habito_id: int) -> bool:
-    habito = db.query(Habit).filter(Habit.id == habito_id).first()
+
+    habito = db.query(Habit).filter(
+        Habit.id == habito_id
+    ).first()
+
     if not habito:
         return False
 
+
     hoy = date.today()
+
+
     registro_existente = (
         db.query(Registro)
         .filter(
@@ -73,8 +92,10 @@ def marcar_completado_hoy(db: Session, habito_id: int) -> bool:
         .first()
     )
 
+
     if registro_existente:
         return True
+
 
     db.add(
         Registro(
@@ -83,5 +104,8 @@ def marcar_completado_hoy(db: Session, habito_id: int) -> bool:
             completado=True,
         )
     )
+
+
     db.commit()
+
     return True
