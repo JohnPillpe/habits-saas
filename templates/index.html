@@ -152,6 +152,60 @@
 
     </div>
 
+    <!-- Modal editar hábito -->
+<div class="modal fade" id="editHabitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">✏️ Editar hábito</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <input type="hidden" id="editHabitId">
+
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        id="editHabitName">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        id="editHabitDescription">
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button 
+                    class="btn btn-secondary" 
+                    data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button 
+                    class="btn btn-primary" 
+                    id="saveEditHabit">
+                    Guardar cambios
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+
     <!-- ============================================ -->
     <!-- JAVASCRIPT PRINCIPAL                          -->
     <!-- ============================================ -->
@@ -310,6 +364,14 @@ function renderHabitos(habitos) {
                     </button>
 
                     <button
+                    class="btn btn-warning btn-sm btn-editar"
+                    data-id="${habito.id}"
+                    data-nombre="${escapeHtml(habito.nombre)}"
+                    data-descripcion="${escapeHtml(habito.descripcion || '')}">
+                    ✏️ Editar
+                    </button>
+
+                    <button
                         class="btn btn-danger btn-sm btn-eliminar"
                          data-id="${habito.id}">
                         🗑️ Eliminar
@@ -344,6 +406,30 @@ function renderHabitos(habitos) {
         });
 
     });
+
+    document.querySelectorAll('.btn-editar')
+    .forEach(btn => {
+
+        btn.addEventListener('click', () => {
+
+        document.getElementById('editHabitId').value = btn.dataset.id;
+
+        document.getElementById('editHabitName').value = btn.dataset.nombre;
+
+        document.getElementById('editHabitDescription').value = btn.dataset.descripcion;
+
+
+        const modal = new bootstrap.Modal(
+            document.getElementById('editHabitModal')
+        );
+
+        modal.show();
+
+    });
+
+});
+    
+
 }
 
         // Función auxiliar para escapar HTML (evita inyección)
@@ -396,7 +482,76 @@ try {
 }
 
 }
-        
+
+
+
+async function editarHabito(id, nombre, descripcion) {
+
+try {
+
+    const response = await apiFetch(
+        `/habits/${id}`,
+        "PUT",
+        {
+            nombre: nombre,
+            descripcion: descripcion
+        }
+    );
+
+
+    const data = await response.json();
+
+
+    if (response.ok) {
+
+        showHabitMessage("Hábito actualizado");
+
+        cargarHabitos();
+
+    } else {
+
+        showHabitMessage(
+            data.detail,
+            "danger"
+        );
+
+    }
+
+
+} catch(error) {
+    console.error(error);
+    showHabitMessage("Error editando hábito", "danger");
+    }
+
+}
+
+       // ------------------------------------------------------------
+// EVENTO PARA GUARDAR EDICIÓN DESDE EL MODAL
+// ------------------------------------------------------------
+document.getElementById('saveEditHabit')
+.addEventListener('click', async () => {
+
+    const id = document.getElementById('editHabitId').value;
+    const nombre = document.getElementById('editHabitName').value.trim();
+    const descripcion = document.getElementById('editHabitDescription').value.trim();
+
+    // Validación simple
+    if (!nombre) {
+        showHabitMessage('El nombre es obligatorio', 'warning');
+        return;
+    }
+
+    await editarHabito(id, nombre, descripcion);
+
+    // Cerrar el modal después de guardar
+    const modal = bootstrap.Modal.getInstance(
+        document.getElementById('editHabitModal')
+    );
+    modal.hide();
+
+});
+
+
         async function eliminarHabito(id) {
 
             const confirmar = confirm(
@@ -490,11 +645,23 @@ try {
             }
 
             try {
+                
+                const formData = new URLSearchParams();
+
+                formData.append("username", email);
+                formData.append("password", password);
+
+
                 const response = await fetch('/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
+                    headers: {
+                     'Content-Type': 'application/x-www-form-urlencoded'
+                     },
+                    body: formData
                 });
+
+
+
 
                 if (response.ok) {
                     const data = await response.json();

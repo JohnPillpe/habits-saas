@@ -1,3 +1,4 @@
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -8,11 +9,15 @@ from database import get_db, Base, engine
 from models import Habit, Usuario, Registro
 from schemas import (
     HabitCreate,
+    HabitUpdate,
     HabitResponse,
     UsuarioCreate,
     UsuarioLogin,
     UsuarioResponse
 )
+
+
+
 from services import habit_to_response, marcar_completado_hoy
 from auth import (
     hashear_password,
@@ -67,12 +72,12 @@ def registrar_usuario(
 
 @app.post("/login")
 def login(
-    usuario: UsuarioLogin,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
 
     db_usuario = db.query(Usuario).filter(
-        Usuario.email == usuario.email
+        Usuario.email == form_data.username
     ).first()
 
 
@@ -84,7 +89,7 @@ def login(
 
 
     if not verificar_password(
-        usuario.password,
+        form_data.password,
         db_usuario.password_hash
     ):
         raise HTTPException(
@@ -155,6 +160,33 @@ def crear_habito(
 
     return habit_to_response(nuevo)
 
+@app.put("/habits/{habito_id}", response_model=HabitResponse)
+def editar_habito(
+    habito_id: int,
+    datos: HabitUpdate,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual)
+):
+
+    habito = db.query(Habit).filter(
+        Habit.id == habito_id,
+        
+        Habit.usuario_id == usuario.id
+    ).first()
+
+    if not habito:
+        raise HTTPException(
+            status_code=404,
+            detail="Hábito no encontrado"
+        )
+
+    habito.nombre = datos.nombre
+    habito.descripcion = datos.descripcion
+
+    db.commit()
+    db.refresh(habito)
+
+    return habit_to_response(habito)
 
 
 

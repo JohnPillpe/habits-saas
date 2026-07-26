@@ -1,9 +1,13 @@
 from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict
 
 
 class HabitCreate(BaseModel):
+    nombre: str
+    descripcion: str | None = None
+
+
+class HabitUpdate(BaseModel):
     nombre: str
     descripcion: str | None = None
 
@@ -19,13 +23,16 @@ class HabitResponse(BaseModel):
     total_completados: int
     ultimo_registro: str | None
 
+
 class UsuarioCreate(BaseModel):
     email: str
     password: str
-    
+
+
 class UsuarioLogin(BaseModel):
     email: str
     password: str
+
 
 class UsuarioResponse(BaseModel):
     id: int
