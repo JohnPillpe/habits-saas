@@ -138,6 +138,18 @@
             </div>
         </div>
     </div>
+
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">📅 Días activos</h5>
+                <p class="display-4" id="diasActivos">0</p>
+                <small class="text-muted">días con actividad</small>
+            </div>
+        </div>
+    </div>
+
+
     <div class="col-md-6">
         <div class="card">
             <div class="card-body">
@@ -372,6 +384,7 @@ async function cargarEstadisticas() {
             
             document.getElementById('rachaTotal').textContent = data.racha_total || 0;
             document.getElementById('totalHabitos').textContent = data.total_habitos || 0;
+            document.getElementById('diasActivos').textContent = data.dias_activos || 0;
             
             const ctx = document.getElementById('weeklyChart').getContext('2d');
             const fechas = Object.keys(data.completados_por_dia);
