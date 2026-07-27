@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from jose import jwt
 import bcrypt
 from fastapi import HTTPException, Depends, status
