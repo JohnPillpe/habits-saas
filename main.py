@@ -275,18 +275,28 @@ def obtener_estadisticas(
     # 4. Calcular racha total
     racha_total = 0
     fecha_actual = hoy
+
     while True:
         fecha_str = fecha_actual.strftime("%Y-%m-%d")
+        
         completados_hoy = db.query(Registro).filter(
             Registro.habitos_id.in_(habitos_ids),
             Registro.fecha == fecha_actual
         ).count()
+
         if completados_hoy > 0:
             racha_total += 1
             fecha_actual -= timedelta(days=1)
         else:
             break
-    
+
+
+    # NUEVO: días con actividad
+    dias_activos = db.query(Registro.fecha).filter(
+        Registro.habitos_id.in_(habitos_ids)
+    ).distinct().count()
+
+
     # 5. Calcular racha por hábito
     racha_por_habito = []
     for habito in habitos:
@@ -311,6 +321,7 @@ def obtener_estadisticas(
     return {
         "racha_total": racha_total,
         "total_habitos": len(habitos),
+        "dias_activos": dias_activos,
         "completados_por_dia": completados_por_dia,
         "racha_por_habito": racha_por_habito,
         "fecha_inicio": fecha_inicio.strftime("%Y-%m-%d"),
