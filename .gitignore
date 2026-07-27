@@ -3,3 +3,4 @@ __pycache__/
 habitos.db
 .venv/
 venv/
+.env
