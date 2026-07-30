@@ -15,6 +15,7 @@ class Usuario(Base):
 
     # Relación: un usuario tiene muchos hábitos
     habitos: Mapped[list["Habit"]] = relationship("Habit", back_populates="usuario", cascade="all, delete-orphan")
+    ofertas: Mapped[list["JobOffer"]] = relationship("JobOffer", back_populates="usuario", cascade="all, delete-orphan")
 
 
 # MODIFICA LA CLASE Habit EXISTENTE para añadir usuario_id:
@@ -46,3 +47,54 @@ class Registro(Base):
     completado: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     habito: Mapped["Habit"] = relationship("Habit", back_populates="registros")
+
+
+class JobOffer(Base):
+    __tablename__ = "job_offers"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    titulo: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
+
+    empresa: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
+
+    categoria: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
+    salario: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
+    tags: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True
+    )
+
+    enlace: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False
+    )
+
+    usuario_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("usuarios.id"),
+        nullable=False
+    )
+
+    usuario: Mapped["Usuario"] = relationship(
+    "Usuario",
+    back_populates="ofertas"
+    )

@@ -3,7 +3,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from datetime import date
+
 
 from scraper import buscar_ofertas_remotive
 
@@ -15,7 +15,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from database import get_db, Base, engine
-from models import Habit, Usuario, Registro
+from models import Habit, Usuario, Registro, JobOffer
 from schemas import (
     HabitCreate,
     HabitUpdate,
@@ -249,7 +249,19 @@ def eliminar_habito(
 
     return {
         "message": "Hábito eliminado"
-    }   
+    } 
+
+@app.get("/job-offers")
+def listar_ofertas(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual)
+):
+
+    ofertas = db.query(JobOffer).filter(
+        JobOffer.usuario_id == usuario.id
+    ).all()
+
+    return ofertas  
 
 @app.get("/api/stats")
 def obtener_estadisticas(
@@ -373,10 +385,8 @@ def tool_eliminar_habito(nombre: str, db=None, usuario=None):
     db.commit()
     return f"🗑️ Hábito '{nombre}' eliminado."
 
-
-
 def tool_scrapear_ofertas(palabra: str, db=None, usuario=None):
-    """Busca ofertas reales en Remotive."""
+    """Busca ofertas reales en Remotive y las guarda en PostgreSQL."""
 
     ofertas = buscar_ofertas_remotive(
         palabra,
@@ -386,28 +396,47 @@ def tool_scrapear_ofertas(palabra: str, db=None, usuario=None):
     if not ofertas:
         return f"No encontré ofertas para {palabra}"
 
-
     if "error" in ofertas[0]:
         return ofertas[0]["error"]
 
-
-    resultado = f"✅ Encontré {len(ofertas)} ofertas para {palabra}\n\n"
-
+    nuevas_guardadas = 0
+    resultado = ""
 
     for i, oferta in enumerate(ofertas, 1):
 
         resultado += f"""
-{i}. {oferta['titulo']}
-Empresa: {oferta['empresa']}
-Categoría: {oferta['categoria']}
-Salario: {oferta['salario']}
-Tags: {oferta['tags']}
-Link: {oferta['enlace']}
+    {i}. {oferta['titulo']}
+    Empresa: {oferta['empresa']}
+    Categoría: {oferta['categoria']}
+    Salario: {oferta['salario']}
+    Tags: {oferta['tags']}
+    Link: {oferta['enlace']}
 
-"""
+    """
 
+        existe = db.query(JobOffer).filter(
+            JobOffer.enlace == oferta["enlace"],
+            JobOffer.usuario_id == usuario.id
+        ).first()
 
-    # Crear hábito automáticamente
+        if existe:
+            continue
+
+        nueva_oferta = JobOffer(
+            titulo=oferta["titulo"],
+            empresa=oferta["empresa"],
+            categoria=oferta["categoria"],
+            salario=oferta["salario"],
+            tags=oferta["tags"],
+            enlace=oferta["enlace"],
+            usuario_id=usuario.id
+        )
+
+        db.add(nueva_oferta)
+        nuevas_guardadas += 1
+
+    db.commit()
+
     nombre_habito = f"Revisar ofertas de {palabra}"
 
     existe = db.query(Habit).filter(
@@ -423,8 +452,12 @@ Link: {oferta['enlace']}
             usuario=usuario
         )
 
+    return (
+        f"🔎 Encontradas: {len(ofertas)}\n"
+        f"💾 Nuevas guardadas: {nuevas_guardadas}\n\n"
+        + resultado
+    )
 
-    return resultado 
 
 TOOLS_MAP = {
     "crear_habito": tool_crear_habito,
