@@ -5,6 +5,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import date
 
+
+import os
+import json
+from openai import OpenAI
+
+from pydantic import BaseModel
+
 from database import get_db, Base, engine
 from models import Habit, Usuario, Registro
 from schemas import (
@@ -25,6 +32,8 @@ from auth import (
     crear_token,
     obtener_usuario_actual
 )
+
+
 
 
 app = FastAPI(title="Seguimiento de Hábitos")   
@@ -278,7 +287,7 @@ def obtener_estadisticas(
 
     while True:
         fecha_str = fecha_actual.strftime("%Y-%m-%d")
-        
+
         completados_hoy = db.query(Registro).filter(
             Registro.habitos_id.in_(habitos_ids),
             Registro.fecha == fecha_actual
@@ -328,9 +337,143 @@ def obtener_estadisticas(
         "fecha_fin": hoy.strftime("%Y-%m-%d")
     }
 
+
+class RecomendacionRequest(BaseModel):
+    consulta: str
+
+# ==========================================
+# HERRAMIENTAS PARA EL AGENTE (FUNCTION CALLING)
+# ==========================================
+
+def tool_crear_habito(nombre: str, descripcion: str = None, db=None, usuario=None):
+    """Crea un nuevo hábito para el usuario autenticado."""
+    nuevo = Habit(nombre=nombre, descripcion=descripcion, usuario_id=usuario.id)
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return f"✅ Hábito '{nombre}' creado con éxito."
+
+def tool_completar_habito(nombre: str, db=None, usuario=None):
+    """Marca un hábito como completado HOY (busca por nombre exacto)."""
+    habito = db.query(Habit).filter(Habit.nombre == nombre, Habit.usuario_id == usuario.id).first()
+    if not habito:
+        return f"❌ No encontré el hábito '{nombre}'."
+    from services import marcar_completado_hoy
+    marcar_completado_hoy(db, habito.id)
+    return f"✅ Hábito '{nombre}' completado hoy."
+
+def tool_eliminar_habito(nombre: str, db=None, usuario=None):
+    """Elimina un hábito (busca por nombre exacto)."""
+    habito = db.query(Habit).filter(Habit.nombre == nombre, Habit.usuario_id == usuario.id).first()
+    if not habito:
+        return f"❌ No encontré el hábito '{nombre}'."
+    db.delete(habito)
+    db.commit()
+    return f"🗑️ Hábito '{nombre}' eliminado."
+
+TOOLS_MAP = {
+    "crear_habito": tool_crear_habito,
+    "completar_habito": tool_completar_habito,
+    "eliminar_habito": tool_eliminar_habito,
+}
+
+TOOLS_SPEC = [
+    {
+        "type": "function",
+        "function": {
+            "name": "crear_habito",
+            "description": "Crea un nuevo hábito. Úsalo cuando el usuario pida añadir/crear un hábito.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nombre": {"type": "string", "description": "Nombre del hábito"},
+                    "descripcion": {"type": "string", "description": "Descripción opcional"},
+                },
+                "required": ["nombre"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "completar_habito",
+            "description": "Marca un hábito como completado hoy. Úsalo cuando el usuario diga que completó un hábito.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nombre": {"type": "string", "description": "Nombre exacto del hábito"},
+                },
+                "required": ["nombre"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "eliminar_habito",
+            "description": "Elimina un hábito. Úsalo cuando el usuario pida borrar/eliminar un hábito.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nombre": {"type": "string", "description": "Nombre exacto del hábito"},
+                },
+                "required": ["nombre"],
+            },
+        },
+    },
+]
+
+
+@app.post("/api/ai/recommend")
+async def agente_habitos(
+    request: RecomendacionRequest,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual)
+):
+    # Obtener hábitos del usuario para contexto
+    habitos = db.query(Habit).filter(Habit.usuario_id == usuario.id).all()
+    nombres = [h.nombre for h in habitos]
+    context = f"Tienes estos hábitos: {', '.join(nombres) if nombres else 'ninguno'}."
+
+    messages = [
+        {"role": "system", "content": "Eres un asistente que ayuda con hábitos. Puedes crear, completar y eliminar hábitos usando las herramientas. SIEMPRE usa las herramientas cuando el usuario pida una acción."},
+        {"role": "user", "content": f"{context}\n\nPregunta: {request.consulta}"}
+    ]
+
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="DEEPSEEK_API_KEY no configurada")
+
+    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
+
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=messages,
+        tools=TOOLS_SPEC,
+        tool_choice="auto",
+    )
+
+    message = response.choices[0].message
+
+    # Si la IA quiere llamar una herramienta
+    if message.tool_calls:
+        for tool_call in message.tool_calls:
+            function_name = tool_call.function.name
+            function_args = json.loads(tool_call.function.arguments)
+            if function_name in TOOLS_MAP:
+                result = TOOLS_MAP[function_name](**function_args, db=db, usuario=usuario)
+                return {"recomendacion": result}
+            else:
+                return {"recomendacion": "❌ Herramienta no disponible."}
+
+    # Si la IA no llama a ninguna herramienta, devuelve su respuesta textual
+    return {"recomendacion": message.content}
+
+
 # =========================
 # PAGINA WEB
 # =========================
+
 
 
 @app.get("/", response_class=HTMLResponse)
