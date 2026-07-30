@@ -904,6 +904,8 @@ document.getElementById('saveEditHabit')
                 return;
             }
 
+            document.getElementById("respuestaIA").innerText = "⏳ Pensando...";
+
             try {
 
                 const respuesta = await fetch(
@@ -933,6 +935,12 @@ document.getElementById('saveEditHabit')
                 datos.recomendacion;
                  
                 document.getElementById("preguntaIA").value = "";
+
+                // Actualizar hábitos automáticamente
+                setTimeout(async () => {
+                    await cargarHabitos();
+                    await cargarEstadisticas();
+                }, 500);         
 
 
         } catch(error) {

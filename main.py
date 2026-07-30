@@ -5,6 +5,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import date
 
+from scraper import buscar_ofertas_remotive
+
 
 import os
 import json
@@ -371,10 +373,64 @@ def tool_eliminar_habito(nombre: str, db=None, usuario=None):
     db.commit()
     return f"🗑️ Hábito '{nombre}' eliminado."
 
+
+
+def tool_scrapear_ofertas(palabra: str, db=None, usuario=None):
+    """Busca ofertas reales en Remotive."""
+
+    ofertas = buscar_ofertas_remotive(
+        palabra,
+        max_ofertas=5
+    )
+
+    if not ofertas:
+        return f"No encontré ofertas para {palabra}"
+
+
+    if "error" in ofertas[0]:
+        return ofertas[0]["error"]
+
+
+    resultado = f"✅ Encontré {len(ofertas)} ofertas para {palabra}\n\n"
+
+
+    for i, oferta in enumerate(ofertas, 1):
+
+        resultado += f"""
+{i}. {oferta['titulo']}
+Empresa: {oferta['empresa']}
+Categoría: {oferta['categoria']}
+Salario: {oferta['salario']}
+Tags: {oferta['tags']}
+Link: {oferta['enlace']}
+
+"""
+
+
+    # Crear hábito automáticamente
+    nombre_habito = f"Revisar ofertas de {palabra}"
+
+    existe = db.query(Habit).filter(
+        Habit.nombre == nombre_habito,
+        Habit.usuario_id == usuario.id
+    ).first()
+
+    if not existe:
+        tool_crear_habito(
+            nombre=nombre_habito,
+            descripcion=f"{len(ofertas)} ofertas encontradas en Remotive",
+            db=db,
+            usuario=usuario
+        )
+
+
+    return resultado 
+
 TOOLS_MAP = {
     "crear_habito": tool_crear_habito,
     "completar_habito": tool_completar_habito,
     "eliminar_habito": tool_eliminar_habito,
+    "scrapear_ofertas": tool_scrapear_ofertas,
 }
 
 TOOLS_SPEC = [
@@ -421,6 +477,25 @@ TOOLS_SPEC = [
             },
         },
     },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "scrapear_ofertas",
+            "description":"Busca ofertas de trabajo reales en Remotive usando una tecnología o puesto. Usa esta herramienta cuando el usuario pida buscar empleos u ofertas.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "palabra": {
+                        "type": "string",
+                        "description": "Tecnología o puesto a buscar"
+                    }
+                },
+                "required": ["palabra"]
+            }
+        }
+    }        
+
 ]
 
 
@@ -436,7 +511,7 @@ async def agente_habitos(
     context = f"Tienes estos hábitos: {', '.join(nombres) if nombres else 'ninguno'}."
 
     messages = [
-        {"role": "system", "content": "Eres un asistente que ayuda con hábitos. Puedes crear, completar y eliminar hábitos usando las herramientas. SIEMPRE usa las herramientas cuando el usuario pida una acción."},
+        {"role": "system", "content": "Eres un asistente que ayuda con hábitos. Puedes crear, completar, eliminar hábitos y buscar ofertas de trabajo usando herramientas. Usa las herramientas cuando el usuario pida acciones."},
         {"role": "user", "content": f"{context}\n\nPregunta: {request.consulta}"}
     ]
 
