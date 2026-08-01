@@ -10,6 +10,8 @@ from app.career.cover_letter_generator import generar_cover_letter
 from app.services.cover_letter_service import guardar_cover_letter
 from app.career.application_answers import generar_respuestas
 from app.services.application_answers_service import guardar_application_answers
+from app.career.interview_preparation import generar_preparacion_entrevista
+from app.services.interview_preparation_service import guardar_interview_preparation
 
 
 
@@ -84,6 +86,19 @@ Salario:
         )
 
         print("APPLICATION ANSWERS GUARDADAS:", oferta.id)
+
+        interview_preparation = generar_preparacion_entrevista(
+            cv=cv,
+            job=job,
+        )
+
+        guardar_interview_preparation(
+            db=db,
+            job_offer_id=oferta.id,
+            preparation_json=interview_preparation,
+        )
+
+        print("INTERVIEW PREPARATION GUARDADA:", oferta.id)
 
         print("CV OPTIMIZADO GENERADO")
         print(cv_optimizado[:300])

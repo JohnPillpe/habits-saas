@@ -282,3 +282,32 @@ class ApplicationAnswers(Base):
     )
 
     job_offer: Mapped["JobOffer"] = relationship("JobOffer")
+
+class InterviewPreparation(Base):
+    __tablename__ = "interview_preparation"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    job_offer_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("job_offers.id"),
+        unique=True,
+        nullable=False,
+    )
+
+    technical_questions: Mapped[list] = mapped_column(JSON)
+
+    behavioral_questions: Mapped[list] = mapped_column(JSON)
+
+    tips: Mapped[list] = mapped_column(JSON)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    job_offer: Mapped["JobOffer"] = relationship("JobOffer")

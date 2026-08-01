@@ -14,6 +14,7 @@ from app.career.engine import analizar_ofertas_usuario
 from app.models.models import OptimizedCV
 from app.models.models import CoverLetter
 from app.models.models import ApplicationAnswers
+from app.models.models import InterviewPreparation
 
 
 router = APIRouter(
@@ -156,4 +157,30 @@ def obtener_application_answers(
         "why_should_we_hire_you": answers.why_should_we_hire_you,
         "greatest_strength": answers.greatest_strength,
         "greatest_weakness": answers.greatest_weakness,
+    }
+
+@router.get("/interview-preparation/{job_offer_id}")
+def obtener_interview_preparation(
+    job_offer_id: int,
+    db: Session = Depends(get_db),
+):
+
+    prep = (
+        db.query(InterviewPreparation)
+        .filter(
+            InterviewPreparation.job_offer_id == job_offer_id
+        )
+        .first()
+    )
+
+    if not prep:
+        raise HTTPException(
+            status_code=404,
+            detail="Interview preparation not found",
+        )
+
+    return {
+        "technical_questions": prep.technical_questions,
+        "behavioral_questions": prep.behavioral_questions,
+        "tips": prep.tips,
     }
