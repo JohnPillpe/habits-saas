@@ -220,3 +220,65 @@ class OptimizedCV(Base):
     )
 
     job_offer: Mapped["JobOffer"] = relationship("JobOffer")
+
+
+class CoverLetter(Base):
+    __tablename__ = "cover_letters"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    job_offer_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("job_offers.id"),
+        unique=True,
+        nullable=False,
+    )
+
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    job_offer: Mapped["JobOffer"] = relationship("JobOffer")
+
+class ApplicationAnswers(Base):
+    __tablename__ = "application_answers"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    job_offer_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("job_offers.id"),
+        unique=True,
+        nullable=False,
+    )
+
+    tell_me_about_yourself: Mapped[str] = mapped_column(Text)
+
+    why_this_company: Mapped[str] = mapped_column(Text)
+
+    why_should_we_hire_you: Mapped[str] = mapped_column(Text)
+
+    greatest_strength: Mapped[str] = mapped_column(Text)
+
+    greatest_weakness: Mapped[str] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    job_offer: Mapped["JobOffer"] = relationship("JobOffer")

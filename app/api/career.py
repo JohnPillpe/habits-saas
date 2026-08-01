@@ -12,6 +12,8 @@ from app.career.cv_service import obtener_cv
 from app.services.job_offer_service import obtener_oferta
 from app.career.engine import analizar_ofertas_usuario
 from app.models.models import OptimizedCV
+from app.models.models import CoverLetter
+from app.models.models import ApplicationAnswers
 
 
 router = APIRouter(
@@ -101,4 +103,57 @@ def obtener_cv_optimizado(
     return {
         "job_offer_id": cv.job_offer_id,
         "content": cv.content,
+    }
+
+@router.get("/cover-letter/{job_offer_id}")
+def obtener_cover_letter(
+    job_offer_id: int,
+    db: Session = Depends(get_db),
+):
+
+    cover = (
+        db.query(CoverLetter)
+        .filter(
+            CoverLetter.job_offer_id == job_offer_id
+        )
+        .first()
+    )
+
+    if not cover:
+        raise HTTPException(
+            status_code=404,
+            detail="Cover Letter not found",
+        )
+
+    return {
+        "job_offer_id": cover.job_offer_id,
+        "content": cover.content,
+    }
+
+@router.get("/application-answers/{job_offer_id}")
+def obtener_application_answers(
+    job_offer_id: int,
+    db: Session = Depends(get_db),
+):
+
+    answers = (
+        db.query(ApplicationAnswers)
+        .filter(
+            ApplicationAnswers.job_offer_id == job_offer_id
+        )
+        .first()
+    )
+
+    if not answers:
+        raise HTTPException(
+            status_code=404,
+            detail="Application Answers not found",
+        )
+
+    return {
+        "tell_me_about_yourself": answers.tell_me_about_yourself,
+        "why_this_company": answers.why_this_company,
+        "why_should_we_hire_you": answers.why_should_we_hire_you,
+        "greatest_strength": answers.greatest_strength,
+        "greatest_weakness": answers.greatest_weakness,
     }
