@@ -15,6 +15,7 @@ from app.models.models import OptimizedCV
 from app.models.models import CoverLetter
 from app.models.models import ApplicationAnswers
 from app.models.models import InterviewPreparation
+from app.services.dashboard_service import obtener_dashboard
 
 
 router = APIRouter(
@@ -184,3 +185,10 @@ def obtener_interview_preparation(
         "behavioral_questions": prep.behavioral_questions,
         "tips": prep.tips,
     }
+
+@router.get("/dashboard")
+def dashboard(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(obtener_usuario_actual),
+):
+    return obtener_dashboard(db)
