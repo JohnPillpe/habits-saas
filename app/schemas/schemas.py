@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Literal, Any
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -41,3 +43,17 @@ class UsuarioResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class AgentResponse(BaseModel):
+    type: Literal[
+        "text",
+        "habit_created",
+        "habit_completed",
+        "habit_deleted",
+        "jobs_found",
+        "error",
+    ]
+
+    message: str
+
+    data: Any | None = None

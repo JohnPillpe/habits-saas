@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from models import Habit, Registro
+from app.models.models import Habit, Registro
 
 
 def calcular_racha(fechas_completadas: set[date]) -> int:

@@ -23,14 +23,27 @@ def buscar_ofertas_remotive(
             params=params,
             timeout=10
         )
-
+        print("URL enviada:", response.url)
         response.raise_for_status()
 
         data = response.json()
 
+        jobs = data.get("jobs", [])
+
+        palabra_lower = palabra.lower()
+
+        jobs_filtrados = [
+            job for job in jobs
+            if palabra_lower in (
+                job.get("title", "") +
+                " " +
+                " ".join(job.get("tags", []))
+            ).lower()
+        ]
+
         ofertas = []
 
-        for job in data.get("jobs", [])[:max_ofertas]:
+        for job in jobs_filtrados[:max_ofertas]:
 
             ofertas.append({
                 "titulo": job.get("title", "Sin título"),

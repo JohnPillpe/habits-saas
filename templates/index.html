@@ -134,10 +134,34 @@
 
                 <h3>🤖 Asistente IA de hábitos</h3>
             
-                <input 
+                <div style="margin-bottom:15px; display:flex; gap:10px;">
+            
+                    <input
+                        type="file"
+                        id="fileInput"
+                        accept=".pdf"
+                        class="form-control"
+                    >
+            
+                    <button
+                        class="btn btn-secondary"
+                        onclick="subirDocumento()">
+            
+                        📄 Subir PDF
+            
+                    </button>
+            
+                </div>
+            
+                <div
+                    id="uploadStatus"
+                    style="margin-bottom:15px;">
+                </div>
+            
+                <input
                     id="preguntaIA"
                     type="text"
-                    placeholder="Ej: ¿Cómo puedo mejorar mis hábitos?"
+                    placeholder="Pregunta sobre tus hábitos o tus documentos..."
                 >
             
                 <button onclick="preguntarIA()">
@@ -894,6 +918,74 @@ document.getElementById('saveEditHabit')
         // Al cargar la página, comprobar si hay token
         updateUI();
 
+        async function subirDocumento() {
+
+            const input = document.getElementById("fileInput");
+            const status = document.getElementById("uploadStatus");
+
+            if (input.files.length === 0) {
+
+                status.innerText = "Selecciona un PDF.";
+
+                return;
+            }
+
+            const archivo = input.files[0];
+
+            const formData = new FormData();
+
+            formData.append("file", archivo);
+
+            status.innerText = "⏳ Subiendo documento...";
+
+            try {
+
+                const respuesta = await fetch(
+                    "/api/documents/upload",
+                    {
+
+                        method: "POST",
+                        headers: {
+                            "Authorization": "Bearer " + getToken()
+                        },
+                        body: formData
+                    }
+                );
+
+                const datos = await respuesta.json();
+
+                if (!respuesta.ok) {
+
+                    status.innerText = "❌ " + datos.detail;
+
+                    return;
+                }
+
+                 status.innerText =
+                    "✅ " +
+                    datos.message +
+                    " (" +
+                    datos.fragmentos_guardados +
+                    " fragmentos)";
+
+                input.value = "";
+
+            }
+
+            catch (error) {
+
+                console.error(error);
+
+                status.innerText =
+                    "❌ Error subiendo el documento.";
+
+            }
+
+    }
+
+
+
+
         async function preguntarIA(){
 
             const pregunta = document.getElementById("preguntaIA").value;
@@ -931,8 +1023,35 @@ document.getElementById('saveEditHabit')
                 }
 
 
-                document.getElementById("respuestaIA").innerText =
-                datos.recomendacion;
+                if (datos.type === "habit_created") {
+                    document.getElementById("respuestaIA").innerText =
+                    "✅ " + datos.message;
+                }
+
+                else if (datos.type === "habit_completed") {
+                    document.getElementById("respuestaIA").innerText =
+                    "🎉 " + datos.message;
+                }
+
+                else if (datos.type === "habit_deleted") {
+                    document.getElementById("respuestaIA").innerText =
+                    "🗑️ " + datos.message;
+                }
+
+                else if (datos.type === "jobs_found") {
+                    document.getElementById("respuestaIA").innerText =
+                    datos.message;
+                }
+
+                else if (datos.type === "error") {
+                    document.getElementById("respuestaIA").innerText =
+                    "❌ " + datos.message;
+                }
+
+                else {
+                    document.getElementById("respuestaIA").innerText =
+                    datos.message;
+                }
                  
                 document.getElementById("preguntaIA").value = "";
 

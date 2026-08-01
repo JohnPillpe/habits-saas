@@ -4,8 +4,8 @@ import bcrypt
 from fastapi import HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Usuario
+from app.db.database import get_db
+from app.models.models import Usuario
 
 
 SECRET_KEY = "tu-clave-secreta-muy-larga-y-dificil-de-adivinar"
