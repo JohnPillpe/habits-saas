@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.models import Usuario, JobOffer
-from app.core.auth import obtener_usuario_actual
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/job-offers", tags=["Jobs"])
 
-@router.get("/job-offers")
+@router.get("")
 def listar_ofertas(
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(obtener_usuario_actual)
+    usuario: Usuario = Depends(get_current_user)
 ):
 
     ofertas = db.query(JobOffer).filter(

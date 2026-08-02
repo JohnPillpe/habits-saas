@@ -1,11 +1,12 @@
 import requests
 from typing import List, Dict
+from app.services.job_normalizer_service import normalize_job_offer
 
 
 def buscar_ofertas_remotive(
     palabra: str,
-    max_ofertas: int = 5
-) -> List[Dict[str, str]]:
+    max_ofertas: int = 5,
+) -> list[dict[str, object]]:
     """
     Busca ofertas de empleo en Remotive usando su API pública.
     """
@@ -23,7 +24,7 @@ def buscar_ofertas_remotive(
             params=params,
             timeout=10
         )
-        print("URL enviada:", response.url)
+       
         response.raise_for_status()
 
         data = response.json()
@@ -45,14 +46,33 @@ def buscar_ofertas_remotive(
 
         for job in jobs_filtrados[:max_ofertas]:
 
-            ofertas.append({
-                "titulo": job.get("title", "Sin título"),
-                "empresa": job.get("company_name", "No especificada"),
-                "categoria": job.get("category", "No especificada"),
-                "salario": job.get("salary", "No especificado"),
-                "tags": ", ".join(job.get("tags", [])[:5]),
-                "enlace": job.get("url", "")
-            })
+            ofertas.append(
+                normalize_job_offer(
+                    source="Remotive",
+
+                    title=job.get("title", "Unknown"),
+
+                    company=job.get("company_name", "Unknown"),
+
+                    url=job.get("url", ""),
+
+                    category=job.get("category"),
+
+                    salary=job.get("salary"),
+
+                    tags=job.get("tags", []),
+
+                    work_type="Remote",
+
+                    country=None,
+
+                    city=None,
+
+                    published_at=job.get("publication_date"),
+
+                    logo=job.get("company_logo"),
+                )
+            )
 
         return ofertas
 

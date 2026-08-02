@@ -1,29 +1,7 @@
 from datetime import datetime
-from typing import Literal, Any
 
 from pydantic import BaseModel, ConfigDict
 
-
-class HabitCreate(BaseModel):
-    nombre: str
-    descripcion: str | None = None
-
-
-class HabitUpdate(BaseModel):
-    nombre: str
-    descripcion: str | None = None
-
-
-class HabitResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    nombre: str
-    descripcion: str | None
-    creado_en: datetime
-    racha_actual: int
-    total_completados: int
-    ultimo_registro: str | None
 
 
 class UsuarioCreate(BaseModel):
@@ -44,16 +22,18 @@ class UsuarioResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class AgentResponse(BaseModel):
-    type: Literal[
-        "text",
-        "habit_created",
-        "habit_completed",
-        "habit_deleted",
-        "jobs_found",
-        "error",
-    ]
+class UserJobPreferenceCreate(BaseModel):
+    desired_role: str
+    target_countries: list[str]
+    target_cities: list[str]
+    remote: bool = True
+    hybrid: bool = False
+    onsite: bool = False
+    published_within_days: int = 7
 
-    message: str
 
-    data: Any | None = None
+class UserJobPreferenceResponse(UserJobPreferenceCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int

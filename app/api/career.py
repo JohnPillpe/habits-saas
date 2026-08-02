@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.core.auth import obtener_usuario_actual
+from app.core.auth import get_current_user
 from app.models.models import Usuario
 
 from app.career.schemas_api import CareerRequest
@@ -16,6 +16,17 @@ from app.models.models import CoverLetter
 from app.models.models import ApplicationAnswers
 from app.models.models import InterviewPreparation
 from app.services.dashboard_service import obtener_dashboard
+from app.services.job_search_service import search_jobs_for_user
+
+from app.schemas.schemas import (
+    UserJobPreferenceCreate,
+    UserJobPreferenceResponse,
+)
+
+from app.services.user_job_preference_service import (
+    get_user_job_preference,
+    save_user_job_preference,
+)
 
 
 router = APIRouter(
@@ -28,7 +39,7 @@ router = APIRouter(
 def analyze(
     request: CareerRequest,
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(obtener_usuario_actual),
+    usuario: Usuario = Depends(get_current_user),
 ):
 
     oferta = obtener_oferta(
@@ -79,7 +90,7 @@ Salario:
 @router.get("/rank-jobs")
 def rank_jobs(
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(obtener_usuario_actual),
+    usuario: Usuario = Depends(get_current_user),
 ):
 
     resultados = analizar_ofertas_usuario(
@@ -189,6 +200,46 @@ def obtener_interview_preparation(
 @router.get("/dashboard")
 def dashboard(
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(obtener_usuario_actual),
+    usuario: Usuario = Depends(get_current_user),
 ):
     return obtener_dashboard(db)
+
+
+@router.get(
+    "/job-preferences",
+    response_model=UserJobPreferenceResponse,
+)
+def get_job_preferences(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return get_user_job_preference(
+        db,
+        current_user.id,
+    )
+
+
+@router.put(
+    "/job-preferences",
+    response_model=UserJobPreferenceResponse,
+)
+def update_job_preferences(
+    data: UserJobPreferenceCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return save_user_job_preference(
+        db,
+        current_user.id,
+        data,
+    )
+
+@router.get("/search-jobs")
+def search_jobs(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    return search_jobs_for_user(
+        db=db,
+        user_id=current_user.id,
+    )

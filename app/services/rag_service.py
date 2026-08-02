@@ -20,6 +20,26 @@ def answer_query(
         n_resultados=5,
     )
 
+def get_cv_text(
+    usuario_id: int,
+) -> str:
+    """
+    Recupera el texto del CV del usuario desde el vector store.
+    """
+
+    fragmentos = buscar_fragmentos(
+        usuario_id,
+        "curriculum vitae cv resume experiencia habilidades",
+        n_resultados=30,
+    )
+
+    if not fragmentos:
+        return ""
+
+    return "\n".join(fragmentos)
+
+
+
     if not fragmentos:
         return "No encontré información relacionada en tus documentos."
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.core.auth import obtener_usuario_actual
+from app.core.auth import get_current_user
 from app.models.models import Usuario
 
 
@@ -25,7 +25,7 @@ router = APIRouter(
 async def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(obtener_usuario_actual),
+    usuario: Usuario = Depends(get_current_user),
 ):
 
     if not file.filename.endswith(".pdf"):
@@ -93,7 +93,7 @@ async def upload_document(
 @router.get("/")
 def obtener_documentos(
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(obtener_usuario_actual),
+    usuario: Usuario = Depends(get_current_user),
 ):
 
     documentos = listar_documentos(

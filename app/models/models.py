@@ -14,6 +14,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
+from sqlalchemy import Column
+
+
 
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -22,12 +25,6 @@ class Usuario(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    habitos: Mapped[list["Habit"]] = relationship(
-        "Habit",
-        back_populates="usuario",
-        cascade="all, delete-orphan"
-    )
 
     ofertas: Mapped[list["JobOffer"]] = relationship(
         "JobOffer",
@@ -40,37 +37,6 @@ class Usuario(Base):
         back_populates="usuario",
         cascade="all, delete-orphan"
     )
-
-
-# MODIFICA LA CLASE Habit EXISTENTE para añadir usuario_id:
-class Habit(Base):
-    __tablename__ = "habitos"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    nombre: Mapped[str] = mapped_column(String(255), nullable=False)
-    descripcion: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    
-    # NUEVA COLUMNA (AÑADE ESTA LÍNEA):
-    usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
-
-    registros: Mapped[list["Registro"]] = relationship("Registro", back_populates="habito", cascade="all, delete-orphan")
-    
-    # NUEVA RELACIÓN (AÑADE ESTA LÍNEA):
-    usuario: Mapped["Usuario"] = relationship("Usuario", back_populates="habitos")
-
-
-class Registro(Base):
-    __tablename__ = "registros"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)  
-    habitos_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("habitos.id"), nullable=False
-    )
-    fecha: Mapped[date] = mapped_column(Date, nullable=False)
-    completado: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    habito: Mapped["Habit"] = relationship("Habit", back_populates="registros")
 
 
 class JobOffer(Base):
@@ -311,3 +277,73 @@ class InterviewPreparation(Base):
     )
 
     job_offer: Mapped["JobOffer"] = relationship("JobOffer")
+
+class UserJobPreference(Base):
+    __tablename__ = "user_job_preferences"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("usuarios.id"),
+        unique=True,
+        nullable=False,
+    )
+
+    desired_role: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    target_countries: Mapped[list] = mapped_column(
+        JSON,
+        default=list,
+    )
+
+    target_cities: Mapped[list] = mapped_column(
+        JSON,
+        default=list,
+    )
+
+    remote: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    hybrid: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    onsite: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    published_within_days: Mapped[int] = mapped_column(
+        Integer,
+        default=7,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    usuario: Mapped["Usuario"] = relationship("Usuario")
+
+class InterviewSession(Base):
+    __tablename__ = "interview_sessions"
+
+
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("usuarios.id"))
+
+    role = Column(String)
+
+    current_question = Column(Integer, default=0)
+
+    score = Column(Integer, default=0)
+
+    answers = Column(JSON, default=list)
+
+    finished = Column(Boolean, default=False)
+
+    usuario = relationship("Usuario")

@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
-habitos.db
+matchai.db
 .venv/
 venv/
 .env
