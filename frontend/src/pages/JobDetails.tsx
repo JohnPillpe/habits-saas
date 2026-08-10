@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+
 import {
   getJobById,
   analyzeJob,
@@ -9,6 +10,7 @@ import {
 } from "@/services/jobs"
 
 import { hasCV } from "@/services/upload"
+
 import {
   useLocation,
   useNavigate,
@@ -20,6 +22,7 @@ import AnalysisTabs from "@/components/job-details/AnalysisTabs"
 import CareerToolkit from "@/components/job-details/CareerToolkit"
 import UploadCVModal from "@/components/jobs/UploadCVModal"
 
+
 export default function JobDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -27,6 +30,7 @@ export default function JobDetails() {
 
   const [job, setJob] = useState<any>(null)
   const [analysis, setAnalysis] = useState<any>(null)
+
   const [loading, setLoading] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
 
@@ -42,16 +46,28 @@ export default function JobDetails() {
   const [interviewPreparation, setInterviewPreparation] =
     useState<any>(null)
 
+
   useEffect(() => {
     async function loadJob() {
       if (!id) return
 
-      const data = await getJobById(id)
-      setJob(data)
+      try {
+        const data = await getJobById(id)
+
+        console.log("JOB DETAILS:", data)
+
+        setJob(data)
+      } catch (error) {
+        console.error(
+          "Could not load job:",
+          error,
+        )
+      }
     }
 
     loadJob()
   }, [id])
+
 
   async function runAnalysis() {
     if (!id) return
@@ -64,6 +80,7 @@ export default function JobDetails() {
           from: `/jobs/${id}`,
         },
       })
+
       return
     }
 
@@ -104,10 +121,16 @@ export default function JobDetails() {
 
       setInterviewPreparation(interview)
 
+    } catch (error) {
+      console.error(
+        "Analysis failed:",
+        error,
+      )
     } finally {
       setLoading(false)
     }
   }
+
 
   async function handleAnalyze() {
     if (!id) return
@@ -134,10 +157,13 @@ export default function JobDetails() {
     await runAnalysis()
   }
 
+
   async function handleCVUploaded() {
     setShowUpload(false)
+
     await runAnalysis()
   }
+
 
   if (!job) {
     return (
@@ -146,6 +172,7 @@ export default function JobDetails() {
       </p>
     )
   }
+
 
   return (
     <section className="mx-auto max-w-5xl px-6 py-12">
@@ -163,18 +190,52 @@ export default function JobDetails() {
         ← Back to search results
       </button>
 
+
       <JobHeader
-        title={job.titulo}
-        company={job.empresa}
-        category={job.categoria}
-        originalUrl={job.enlace}
+        title={job.title ?? job.titulo}
+        company={job.company ?? job.empresa}
+        category={
+          job.category ??
+          job.categoria
+        }
+        salary={
+          job.salary ??
+          job.salario
+        }
+        tags={
+          Array.isArray(job.tags)
+            ? job.tags
+            : []
+        }
+        country={
+          job.country ??
+          job.pais
+        }
+        city={
+          job.city ??
+          job.ciudad
+        }
+        workType={
+          job.work_type ??
+          job.tipo_trabajo
+        }
+        publishedAt={
+          job.published_at ??
+          job.publicado_en
+        }
+        originalUrl={
+          job.url ??
+          job.enlace
+        }
         loading={loading}
         onAnalyze={handleAnalyze}
       />
 
+
       <AnalysisTabs
         analysis={analysis}
       />
+
 
       <CareerToolkit
         optimizedCV={optimizedCV}
@@ -182,6 +243,7 @@ export default function JobDetails() {
         applicationAnswers={applicationAnswers}
         interviewPreparation={interviewPreparation}
       />
+
 
       <UploadCVModal
         open={showUpload}
