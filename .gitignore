@@ -1,6 +1,26 @@
 __pycache__/
 *.pyc
-matchai.db
+
+# Python environments
 .venv/
 venv/
+
+# Environment variables / secrets
 .env
+
+# Local databases
+matchai.db
+
+# Uploaded user files
+uploads/
+
+# Local vector database
+chroma_db/
+
+# Build / frontend dependencies
+frontend/node_modules/
+frontend/dist/
+
+# Local OS files
+.DS_Store
+Thumbs.db

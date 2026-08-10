@@ -9,6 +9,7 @@ def normalize_job_offer(
     url: str,
     category: str | None = None,
     salary: str | None = None,
+    description: str | None = None,
     tags: str | list[str] | None = None,
     country: str | None = None,
     city: str | None = None,
@@ -24,6 +25,7 @@ def normalize_job_offer(
 
         "category": category,
         "salary": salary,
+        "description": description,
         "tags": tags,
 
         "country": country,

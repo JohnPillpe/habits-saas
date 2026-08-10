@@ -1,50 +1,174 @@
 from sqlalchemy.orm import Session
 
+from app.models.models import JobOffer
+
 from app.services.job_provider_remotive import (
     buscar_ofertas_remotive,
 )
 from app.services.job_provider_swissdevjobs import (
     buscar_ofertas_swissdevjobs,
 )
+
 from app.services.user_job_preference_service import (
     get_user_job_preference,
 )
 
-from app.services.career_coach_service import (
-    build_career_advice,
+from app.services.job_keyword_service import (
+    build_search_keywords,
 )
 
-from app.intelligence.market_analyzer import analyze_market
-from app.services.market_report_service import build_market_report
-from app.services.skill_gap_service import analyze_skill_gap
-from app.services.rag_service import get_cv_text
-from app.services.job_keyword_service import build_search_keywords
-from app.services.job_relevance_service import is_relevant_job
-from app.services.job_match_service import calculate_match_score
+from app.services.job_relevance_service import (
+    is_relevant_job,
+)
+
+from app.services.job_match_service import (
+    calculate_match_score,
+)
+
 
 JOB_PROVIDERS = [
     buscar_ofertas_remotive,
     buscar_ofertas_swissdevjobs,
 ]
 
+
+def _tags_to_string(tags):
+    if isinstance(tags, list):
+        return ", ".join(
+            str(tag)
+            for tag in tags
+            if tag is not None
+        )
+
+    return tags
+
+
+def _save_job(
+    db: Session,
+    job: dict,
+    user_id: int,
+):
+    url = (job.get("url") or "").strip()
+
+    if not url:
+        return None
+
+    existing_job = (
+        db.query(JobOffer)
+        .filter(JobOffer.enlace == url)
+        .first()
+    )
+
+    if existing_job:
+        db_job = existing_job
+
+    else:
+        db_job = JobOffer(
+            enlace=url,
+            usuario_id=user_id,
+        )
+
+        db.add(db_job)
+
+    db_job.titulo = (
+        job.get("title")
+        or "Unknown"
+    )
+
+    db_job.empresa = (
+        job.get("company")
+        or "Unknown"
+    )
+
+    db_job.descripcion = job.get(
+        "description"
+    )
+
+    db_job.categoria = job.get(
+        "category"
+    )
+
+    db_job.salario = job.get(
+        "salary"
+    )
+
+    db_job.tags = _tags_to_string(
+        job.get("tags")
+    )
+
+    db_job.country = job.get(
+        "country"
+    )
+
+    db_job.city = job.get(
+        "city"
+    )
+
+    db_job.work_type = job.get(
+        "work_type"
+    )
+
+    db_job.source = job.get(
+        "source"
+    )
+
+    db_job.logo = job.get(
+        "logo"
+    )
+
+    db.flush()
+
+    return db_job
+
+
 def search_jobs_for_user(
     db: Session,
     user_id: int,
     search: str | None = None,
 ):
+    """
+    Main job-search pipeline.
+
+    Search Jobs should remain fast.
+
+    Heavy AI analysis such as:
+    - CV analysis
+    - skill gap
+    - market analysis
+    - career advice
+
+    must NOT run inside this request.
+    """
+
     preference = get_user_job_preference(
         db,
         user_id,
     )
 
-    if search:
-        keywords = build_search_keywords(search)
+    # --------------------------------------------------
+    # 1. BUILD SEARCH KEYWORDS
+    # --------------------------------------------------
+
+    if search and search.strip():
+
+        keywords = build_search_keywords(
+            search.strip()
+        )
 
     elif preference:
-        keywords = build_search_keywords(preference.desired_role)
+
+        keywords = build_search_keywords(
+            preference.desired_role
+        )
 
     else:
-        return []
+        return {
+            "jobs": [],
+        }
+
+    # --------------------------------------------------
+    # 2. SEARCH PROVIDERS
+    # --------------------------------------------------
 
     jobs = []
     seen_links = set()
@@ -53,66 +177,95 @@ def search_jobs_for_user(
 
         for provider in JOB_PROVIDERS:
 
-            provider_jobs = provider(
-                palabra=keyword,
-                max_ofertas=10,
-            )
+            try:
+
+                provider_jobs = provider(
+                    palabra=keyword,
+                    max_ofertas=10,
+                )
+
+            except Exception:
+                continue
 
             if not provider_jobs:
                 continue
 
-            if "error" in provider_jobs[0]:
+            if (
+                isinstance(provider_jobs[0], dict)
+                and "error" in provider_jobs[0]
+            ):
                 continue
 
             for job in provider_jobs:
 
-                link = job.get("url", "").strip()
+                if not isinstance(job, dict):
+                    continue
+
+                link = (
+                    job.get("url")
+                    or ""
+                ).strip()
+
+                if not link:
+                    continue
 
                 if link in seen_links:
                     continue
 
-                if not is_relevant_job(job, keywords):
+                if not is_relevant_job(
+                    job,
+                    keywords,
+                ):
                     continue
 
                 seen_links.add(link)
+
                 jobs.append(job)
 
-    analysis = analyze_market(jobs)
+    # --------------------------------------------------
+    # 3. SAVE / UPDATE DATABASE
+    # --------------------------------------------------
 
-    market_report = build_market_report(analysis)
+    for job in jobs:
 
-    cv_text = get_cv_text(user_id)
+        db_job = _save_job(
+            db=db,
+            job=job,
+            user_id=user_id,
+        )
 
-    skill_gap = analyze_skill_gap(
-        cv_text=cv_text,
-        market_analysis=analysis,
-    )
+        if db_job:
+            job["id"] = db_job.id
 
-    career_advice = build_career_advice(
-        skill_gap,
-        market_report,
-        preference,
-    )
+    db.commit()
+
+    # --------------------------------------------------
+    # 4. MATCH SCORE
+    # --------------------------------------------------
 
     for job in jobs:
 
         job["match_score"] = calculate_match_score(
-            job,
-            skill_gap,
-            preference,
+            job=job,
+            skill_gap=None,
+            preference=preference,
         )
 
+    # --------------------------------------------------
+    # 5. SORT
+    # --------------------------------------------------
+
     jobs.sort(
-        key=lambda x: x["match_score"],
+        key=lambda job: (
+            job.get("match_score") or 0
+        ),
         reverse=True,
     )
 
-
+    # --------------------------------------------------
+    # 6. RESPONSE
+    # --------------------------------------------------
 
     return {
         "jobs": jobs,
-        "analysis": analysis,
-        "market_report": market_report,
-        "skill_gap": skill_gap,
-        "career_advice": career_advice,
     }

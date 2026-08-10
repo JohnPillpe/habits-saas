@@ -53,6 +53,11 @@ class JobOffer(Base):
         nullable=False
     )
 
+    descripcion: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     empresa: Mapped[str] = mapped_column(
         String(255),
         nullable=False
@@ -73,8 +78,64 @@ class JobOffer(Base):
         nullable=True
     )
 
+    pais: Mapped[str | None] = mapped_column(
+    String(255),
+    nullable=True,
+    )
+
+    ciudad: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    tipo_trabajo: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    publicado_en: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+
+
+
+
+    country: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    city: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    work_type: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    source: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    logo: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+
+
     enlace: Mapped[str] = mapped_column(
-        String(500),
+        Text,
         nullable=False
     )
 
@@ -84,10 +145,16 @@ class JobOffer(Base):
         nullable=False
     )
 
+    match_score: Mapped[int | None] = mapped_column(
+    Integer,
+    nullable=True,
+    )
+
     usuario: Mapped["Usuario"] = relationship(
     "Usuario",
     back_populates="ofertas"
     )
+
 
 class CareerAnalysis(Base):
     __tablename__ = "career_analysis"

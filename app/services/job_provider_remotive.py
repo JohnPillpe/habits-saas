@@ -60,16 +60,14 @@ def buscar_ofertas_remotive(
 
                     salary=job.get("salary"),
 
+                    description=job.get("description"),
+
                     tags=job.get("tags", []),
 
                     work_type="Remote",
-
-                    country=None,
-
+                    country=job.get("candidate_required_location"),
                     city=None,
-
                     published_at=job.get("publication_date"),
-
                     logo=job.get("company_logo"),
                 )
             )

@@ -1,16 +1,26 @@
-def is_relevant_job(job: dict, keywords: list[str]) -> bool:
-    """
-    Devuelve True si la oferta contiene alguna palabra clave.
-    """
+def is_relevant_job(
+    job: dict,
+    keywords: list[str],
+) -> bool:
+
+    tags = job.get("tags", [])
+
+    if isinstance(tags, list):
+        tags_text = " ".join(
+            str(tag) for tag in tags
+        )
+    else:
+        tags_text = str(tags or "")
 
     text = " ".join([
-        job.get("titulo", ""),
-        job.get("categoria", ""),
-        job.get("tags", ""),
+        str(job.get("title", "")),
+        str(job.get("category", "")),
+        tags_text,
+        str(job.get("description", "")),
+        str(job.get("company", "")),
     ]).lower()
 
-    for keyword in keywords:
-        if keyword.lower() in text:
-            return True
-
-    return False
+    return any(
+        keyword.lower() in text
+        for keyword in keywords
+    )

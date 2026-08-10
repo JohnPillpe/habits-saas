@@ -11,6 +11,7 @@ def optimizar_cv(cv: str, job: str):
 
     completion = client.chat.completions.create(
         model="deepseek-chat",
+        temperature=0.3,
         messages=[
             {
                 "role": "system",

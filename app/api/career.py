@@ -5,18 +5,19 @@ from app.db.database import get_db
 from app.core.auth import get_current_user
 from app.models.models import Usuario
 
+from app.models.models import CareerAnalysis
+
 from app.career.schemas_api import CareerRequest
-from app.career.service import analizar_cv_vs_job
 
 from app.career.cv_service import obtener_cv
 from app.services.job_offer_service import obtener_oferta
-from app.career.engine import analizar_ofertas_usuario
 from app.models.models import OptimizedCV
 from app.models.models import CoverLetter
 from app.models.models import ApplicationAnswers
 from app.models.models import InterviewPreparation
 from app.services.dashboard_service import obtener_dashboard
 from app.services.job_search_service import search_jobs_for_user
+
 
 from app.schemas.schemas import (
     UserJobPreferenceCreate,
@@ -28,12 +29,12 @@ from app.services.user_job_preference_service import (
     save_user_job_preference,
 )
 
+from app.career.engine import analizar_oferta_usuario
 
 router = APIRouter(
     prefix="/api/career",
     tags=["career"],
 )
-
 
 @router.post("/analyze")
 def analyze(
@@ -42,70 +43,47 @@ def analyze(
     usuario: Usuario = Depends(get_current_user),
 ):
 
-    oferta = obtener_oferta(
-        db=db,
-        oferta_id=request.job_offer_id,
+    resultado = analizar_oferta_usuario(
         usuario_id=usuario.id,
+        job_offer_id=request.job_offer_id,
+        db=db,
     )
 
-    if not oferta:
+    if not resultado:
         raise HTTPException(
             status_code=404,
-            detail="Oferta no encontrada",
+            detail="Could not analyze job",
         )
 
-    cv = obtener_cv(usuario.id)
+    analisis = resultado["analisis"]
 
-    if not cv:
-        raise HTTPException(
-            status_code=404,
-            detail="No se encontró ningún CV para este usuario.",
-        )
-
-    job = f"""
-Título:
-{oferta.titulo}
-
-Empresa:
-{oferta.empresa}
-
-Categoría:
-{oferta.categoria}
-
-Tags:
-{oferta.tags}
-
-Salario:
-{oferta.salario}
-"""
-
-    resultado = analizar_cv_vs_job(
-        cv=cv,
-        job=job,
-    )
-
-    return resultado
-
-
-@router.get("/rank-jobs")
-def rank_jobs(
-    db: Session = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user),
-):
-
-    resultados = analizar_ofertas_usuario(
-        usuario.id,
-        db,
-    )
-
-    return resultados
+    return {
+        "match_score": analisis["match_score"],
+        "recommendation": analisis["recommendation"],
+        "summary": analisis["summary"],
+        "why": analisis["why"],
+        "strengths": analisis["strengths"],
+        "missing_skills": analisis["missing_skills"],
+        "required_skills": analisis["required_skills"],
+        "soft_skills": analisis["soft_skills"],
+        "seniority": analisis["seniority"],
+        "difficulty": analisis["difficulty"],
+        "next_steps": analisis["next_steps"],
+    }
 
 @router.get("/optimized-cv/{job_offer_id}")
 def obtener_cv_optimizado(
     job_offer_id: int,
     db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
 ):
-    cv = db.query(OptimizedCV).filter_by(job_offer_id=job_offer_id).first()
+    cv = (
+        db.query(OptimizedCV)
+        .filter(
+            OptimizedCV.job_offer_id == job_offer_id
+        )
+        .first()
+    )
 
     if not cv:
         raise HTTPException(
@@ -118,12 +96,13 @@ def obtener_cv_optimizado(
         "content": cv.content,
     }
 
+
 @router.get("/cover-letter/{job_offer_id}")
 def obtener_cover_letter(
     job_offer_id: int,
     db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
 ):
-
     cover = (
         db.query(CoverLetter)
         .filter(
@@ -143,12 +122,13 @@ def obtener_cover_letter(
         "content": cover.content,
     }
 
+
 @router.get("/application-answers/{job_offer_id}")
 def obtener_application_answers(
     job_offer_id: int,
     db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
 ):
-
     answers = (
         db.query(ApplicationAnswers)
         .filter(
@@ -171,12 +151,13 @@ def obtener_application_answers(
         "greatest_weakness": answers.greatest_weakness,
     }
 
+
 @router.get("/interview-preparation/{job_offer_id}")
 def obtener_interview_preparation(
     job_offer_id: int,
     db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
 ):
-
     prep = (
         db.query(InterviewPreparation)
         .filter(
@@ -197,49 +178,14 @@ def obtener_interview_preparation(
         "tips": prep.tips,
     }
 
-@router.get("/dashboard")
-def dashboard(
+@router.post("/preferences", response_model=UserJobPreferenceResponse)
+def save_preferences(
+    data: UserJobPreferenceCreate,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(get_current_user),
 ):
-    return obtener_dashboard(db)
-
-
-@router.get(
-    "/job-preferences",
-    response_model=UserJobPreferenceResponse,
-)
-def get_job_preferences(
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    return get_user_job_preference(
-        db,
-        current_user.id,
-    )
-
-
-@router.put(
-    "/job-preferences",
-    response_model=UserJobPreferenceResponse,
-)
-def update_job_preferences(
-    data: UserJobPreferenceCreate,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
     return save_user_job_preference(
-        db,
-        current_user.id,
-        data,
-    )
-
-@router.get("/search-jobs")
-def search_jobs(
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
-):
-    return search_jobs_for_user(
         db=db,
-        user_id=current_user.id,
+        user_id=usuario.id,
+        data=data,
     )
