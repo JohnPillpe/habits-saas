@@ -146,3 +146,46 @@ export async function getInterviewPreparation(
 
   return handleResponse(response)
 }
+
+export async function searchJobsForUser(
+  filters: JobFilters,
+) {
+  const token = localStorage.getItem("token")
+
+  if (!token) {
+    throw new Error("Authentication required")
+  }
+
+  const params = new URLSearchParams()
+
+  if (filters.keyword.trim()) {
+    params.set("keyword", filters.keyword.trim())
+  }
+
+  if (filters.country.trim()) {
+    params.set("country", filters.country.trim())
+  }
+
+  if (filters.city.trim()) {
+    params.set("city", filters.city.trim())
+  }
+
+  if (filters.published) {
+    params.set("published", filters.published)
+  }
+
+  if (filters.workType.trim()) {
+    params.set("workType", filters.workType.trim())
+  }
+
+  const response = await fetch(
+    `${API_URL}/job-offers/search?${params.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+
+  return handleResponse(response)
+}

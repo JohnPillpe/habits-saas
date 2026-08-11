@@ -5,7 +5,7 @@ import AnalyzeJobSection from "./AnalyzeJobSection"
 
 import { useJobs } from "@/context/JobContext"
 
-import { searchJobs } from "@/services/jobs"
+import { searchJobsForUser } from "@/services/jobs"
 
 import JobResults from "../jobs/JobResults"
 
@@ -23,11 +23,13 @@ export default function SearchTabs() {
   const [showResults, setShowResults] = useState(jobs.length > 0)
 
   async function handleSearch() {
-    const data = await searchJobs(filters)
+    const data = await searchJobsForUser(filters)
+    console.log("SEARCH DATA:", data)
+    console.log("FIRST SEARCH JOB JSON:", JSON.stringify(data[0], null, 2))
 
     setJobs(data)
-
     setShowResults(true)
+    
 
   }
 

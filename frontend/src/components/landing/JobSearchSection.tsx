@@ -54,11 +54,13 @@ export default function JobSearchSection({
           onChange={(e) => setCountry(e.target.value)}
         />
 
+        {/* 
         <Input
           placeholder="City"
           value={city}
           onChange={(e) => setCity(e.target.value)}
         />
+        */}
 
         <select
           value={published}

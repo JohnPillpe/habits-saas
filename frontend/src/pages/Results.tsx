@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
 import JobCard from "@/components/jobs/JobCard"
-import { searchJobs } from "@/services/jobs"
+import { searchJobsForUser } from "@/services/jobs"
 
 export default function Results() {
   const [jobs, setJobs] = useState<any[]>([])
@@ -13,7 +13,7 @@ export default function Results() {
   useEffect(() => {
     async function loadJobs() {
       try {
-        const data = await searchJobs({
+        const data = await searchJobsForUser({
           keyword,
           country: "",
           city: "",
@@ -21,9 +21,13 @@ export default function Results() {
           workType: "",
         })
 
+        console.log("FIRST JOB:", data[0])
+        console.log("JOBS:", data)
+
         setJobs(data)
       } catch (error) {
         console.error("Error loading jobs:", error)
+        setJobs([])
       }
     }
 
@@ -44,30 +48,22 @@ export default function Results() {
       </div>
 
       <div className="space-y-6">
+
         {jobs.map((job) => (
           <JobCard
             key={job.id}
             id={job.id}
-            company={job.empresa}
-            title={job.titulo}
-            location={
-              job.ciudad ||
-              job.city ||
-              job.pais ||
-              job.country ||
-              "Remote"
-            }
-            employmentType={
-              job.tipo_trabajo ||
-              job.work_type ||
-              "Remote"
-            }
+            company={job.company}
+            title={job.title}
+            location={job.city || job.country || "Remote"}
+            category={job.category}
+            salary={job.salary}
+            employmentType={job.work_type}
             match={job.match_score}
             tags={job.tags}
-            category={job.categoria}
-            salary={job.salario}
           />
         ))}
+
       </div>
 
     </section>

@@ -1,7 +1,10 @@
+import re
+
+
 def _normalize_text(value):
     """
     Convierte strings, listas y otros valores
-    en un texto comparable.
+    en texto comparable.
     """
 
     if value is None:
@@ -17,10 +20,31 @@ def _normalize_text(value):
     return str(value)
 
 
+def _compact_text(value):
+    """
+    Normaliza eliminando espacios y separadores.
+
+    Ejemplos:
+    Full Stack
+    Full-Stack
+    FullStack
+
+    -> fullstack
+    """
+
+    text = _normalize_text(value).lower()
+
+    text = re.sub(r"[-_/]", " ", text)
+    text = re.sub(r"[^a-z0-9+#. ]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text.replace(" ", "")
+
+
 def _get_job_field(job, *names):
     """
     Permite trabajar tanto con los nombres
-    actuales de Remotive como con nombres antiguos.
+    actuales como con nombres antiguos.
     """
 
     for name in names:
@@ -32,31 +56,70 @@ def _get_job_field(job, *names):
     return ""
 
 
+def _keyword_matches(keyword, job_text, compact_job_text):
+    """
+    Comprueba si una keyword aparece en el job.
+    """
+
+    normalized_keyword = _normalize_text(
+        keyword
+    ).lower().strip()
+
+    if not normalized_keyword:
+        return False
+
+    normalized_keyword = re.sub(
+        r"\s+",
+        " ",
+        normalized_keyword,
+    )
+
+    if normalized_keyword in job_text:
+        return True
+
+    compact_keyword = _compact_text(
+        keyword
+    )
+
+    if (
+        compact_keyword
+        and compact_keyword in compact_job_text
+    ):
+        return True
+
+    return False
+
+
 def calculate_match_score(
     job,
     skill_gap=None,
     preference=None,
+    search=None,
 ):
     """
-    Calcula un score de compatibilidad entre
-    el usuario y una oferta.
+    Calculates a fast deterministic match score.
 
-    El score combina:
-    - título
-    - categoría
-    - tags
-    - descripción
-    - role deseado
-    - tipo de trabajo
-    - país
-    - ciudad
+    This is NOT the deep AI career analysis.
+
+    The score is based on:
+
+    - Desired role / keywords
+    - Job title
+    - Category
+    - Tags
+    - Description
+    - Country
+    - City
+    - Work type
+
+    Maximum score: 100
     """
 
     # --------------------------------------------------
     # JOB DATA
     # --------------------------------------------------
 
-    titulo = _normalize_text(
+    title = _normalize_text(
         _get_job_field(
             job,
             "title",
@@ -64,7 +127,7 @@ def calculate_match_score(
         )
     ).lower()
 
-    categoria = _normalize_text(
+    category = _normalize_text(
         _get_job_field(
             job,
             "category",
@@ -76,7 +139,7 @@ def calculate_match_score(
         job.get("tags", "")
     ).lower()
 
-    descripcion = _normalize_text(
+    description = _normalize_text(
         _get_job_field(
             job,
             "description",
@@ -92,21 +155,68 @@ def calculate_match_score(
         )
     ).lower()
 
-    texto_job = " ".join([
-        titulo,
-        categoria,
+    job_text = " ".join([
+        title,
+        category,
         tags,
-        descripcion,
+        description,
         company,
     ])
 
+    compact_job_text = _compact_text(
+        job_text
+    )
+
     score = 0
 
+        # --------------------------------------------------
+    # SEARCH QUERY MATCH
     # --------------------------------------------------
-    # PREFERENCE
+
+    if search and str(search).strip():
+
+        search_text = _normalize_text(
+            search
+        ).lower().strip()
+
+        search_words = [
+            word
+            for word in search_text.split()
+            if len(word) > 2
+        ]
+
+        if search_words:
+
+            matched_search_words = sum(
+                1
+                for word in search_words
+                if _keyword_matches(
+                    word,
+                    job_text,
+                    compact_job_text,
+                )
+            )
+
+            search_ratio = (
+                matched_search_words
+                / len(search_words)
+            )
+
+            # Search relevance = maximum 50 points
+            score += round(
+                search_ratio * 50
+            )
+
+
+    # --------------------------------------------------
+    # USER PREFERENCES
     # --------------------------------------------------
 
     if preference:
+
+        # ----------------------------------------------
+        # 1. DESIRED ROLE
+        # ----------------------------------------------
 
         desired_role = _normalize_text(
             getattr(
@@ -114,35 +224,7 @@ def calculate_match_score(
                 "desired_role",
                 "",
             )
-        ).lower()
-
-        preferred_work_type = _normalize_text(
-            getattr(
-                preference,
-                "work_type",
-                "",
-            )
-        ).lower()
-
-        preferred_country = _normalize_text(
-            getattr(
-                preference,
-                "country",
-                "",
-            )
-        ).lower()
-
-        preferred_city = _normalize_text(
-            getattr(
-                preference,
-                "city",
-                "",
-            )
-        ).lower()
-
-        # ----------------------------------------------
-        # DESIRED ROLE
-        # ----------------------------------------------
+        ).lower().strip()
 
         if desired_role:
 
@@ -157,88 +239,123 @@ def calculate_match_score(
                 matched_words = sum(
                     1
                     for word in role_words
-                    if word in texto_job
+                    if _keyword_matches(
+                        word,
+                        job_text,
+                        compact_job_text,
+                    )
                 )
 
                 role_ratio = (
                     matched_words / len(role_words)
                 )
 
+                # Desired role = maximum 50 points
                 score += round(
-                    role_ratio * 40
+                    role_ratio * 50
                 )
 
         # ----------------------------------------------
-        # WORK TYPE
+        # 2. COUNTRY
         # ----------------------------------------------
 
-        if preferred_work_type:
+        target_countries = getattr(
+            preference,
+            "target_countries",
+            [],
+        ) or []
 
-            job_work_type = _normalize_text(
-                job.get(
-                    "work_type",
-                    "",
-                )
-            ).lower()
+        job_country = _normalize_text(
+            job.get("country", "")
+        ).lower()
 
-            if preferred_work_type in job_work_type:
+        if target_countries and job_country:
+
+            country_match = any(
+                _normalize_text(country).lower()
+                in job_country
+                for country in target_countries
+                if _normalize_text(country).strip()
+            )
+
+            if country_match:
                 score += 15
 
         # ----------------------------------------------
-        # COUNTRY
+        # 3. CITY
         # ----------------------------------------------
 
-        if preferred_country:
+        target_cities = getattr(
+            preference,
+            "target_cities",
+            [],
+        ) or []
 
-            job_country = _normalize_text(
-                job.get(
-                    "country",
-                    "",
-                )
-            ).lower()
+        job_city = _normalize_text(
+            job.get("city", "")
+        ).lower()
 
-            if preferred_country in job_country:
+        if target_cities and job_city:
+
+            city_match = any(
+                _normalize_text(city).lower()
+                in job_city
+                for city in target_cities
+                if _normalize_text(city).strip()
+            )
+
+            if city_match:
                 score += 10
 
         # ----------------------------------------------
-        # CITY
+        # 4. WORK TYPE
         # ----------------------------------------------
 
-        if preferred_city:
+        job_work_type = _normalize_text(
+            job.get("work_type", "")
+        ).lower()
 
-            job_city = _normalize_text(
-                job.get(
-                    "city",
-                    "",
+        if job_work_type:
+
+            if (
+                getattr(
+                    preference,
+                    "remote",
+                    False,
                 )
-            ).lower()
+                and "remote" in job_work_type
+            ):
+                score += 15
 
-            if preferred_city in job_city:
-                score += 5
+            elif (
+                getattr(
+                    preference,
+                    "hybrid",
+                    False,
+                )
+                and "hybrid" in job_work_type
+            ):
+                score += 15
+
+            elif (
+                getattr(
+                    preference,
+                    "onsite",
+                    False,
+                )
+                and (
+                    "onsite" in job_work_type
+                    or "on-site" in job_work_type
+                )
+            ):
+                score += 15
 
     # --------------------------------------------------
-    # SEARCH / ROLE RELEVANCE
+    # 5. JOB QUALITY / TITLE SIGNAL
     # --------------------------------------------------
 
-    # Si existe título, damos una pequeña base
-    # porque tenemos una oferta válida.
-    if titulo:
+    if title:
         score += 5
-
-    # --------------------------------------------------
-    # SKILL GAP
-    # --------------------------------------------------
-
-    # IMPORTANTE:
-    #
-    # missing_skills NO se premian.
-    #
-    # Son skills que le faltan al usuario.
-    #
-    # De momento dejamos esta sección preparada
-    # para que posteriormente podamos comparar
-    # las skills reales del CV contra las skills
-    # requeridas por cada job.
 
     # --------------------------------------------------
     # LIMIT

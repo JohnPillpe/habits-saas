@@ -108,3 +108,26 @@ def obtener_documento_completo(
     )
 
     return texto
+
+def eliminar_documento(
+    usuario_id: int,
+    nombre_documento: str,
+):
+    collection = get_collection()
+
+    resultados = collection.get(
+        where={
+            "$and": [
+                {"usuario_id": usuario_id},
+                {"documento": nombre_documento},
+            ]
+        }
+     
+    )
+
+    ids = resultados.get("ids", [])
+
+    if ids:
+        collection.delete(ids=ids)
+
+    return len(ids)

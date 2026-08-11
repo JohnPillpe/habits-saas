@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.models import JobOffer
 
+from app.core.auth import get_current_user
+from app.models.models import Usuario
+from app.services.job_search_service import search_jobs_for_user
+
 
 router = APIRouter(
     prefix="/job-offers",
@@ -171,3 +175,47 @@ def obtener_oferta_publica(
         "source": job.source,
         "match_score": job.match_score,
     }
+
+@router.get("/search")
+def buscar_ofertas_usuario(
+    keyword: Optional[str] = None,
+    country: Optional[str] = None,
+    city: Optional[str] = None,
+    published: Optional[str] = None,
+    workType: Optional[str] = None,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+):
+
+    resultado = search_jobs_for_user(
+    db=db,
+    user_id=usuario.id,
+    search=keyword,
+    country=country,
+    city=city,
+    published=published,
+    work_type=workType,
+    )
+
+    return resultado["jobs"]
+
+@router.get("/debug/locations")
+def debug_locations(
+    db: Session = Depends(get_db),
+):
+    jobs = (
+        db.query(
+            JobOffer.country,
+            JobOffer.city,
+        )
+        .distinct()
+        .all()
+    )
+
+    return [
+        {
+            "country": country,
+            "city": city,
+        }
+        for country, city in jobs
+    ]

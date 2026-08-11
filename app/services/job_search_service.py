@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from sqlalchemy.orm import Session
 
 from app.models.models import JobOffer
@@ -5,6 +7,7 @@ from app.models.models import JobOffer
 from app.services.job_provider_remotive import (
     buscar_ofertas_remotive,
 )
+
 from app.services.job_provider_swissdevjobs import (
     buscar_ofertas_swissdevjobs,
 )
@@ -125,19 +128,13 @@ def search_jobs_for_user(
     db: Session,
     user_id: int,
     search: str | None = None,
+    country: str | None = None,
+    city: str | None = None,
+    published: str | None = None,
+    work_type: str | None = None,
 ):
     """
     Main job-search pipeline.
-
-    Search Jobs should remain fast.
-
-    Heavy AI analysis such as:
-    - CV analysis
-    - skill gap
-    - market analysis
-    - career advice
-
-    must NOT run inside this request.
     """
 
     preference = get_user_job_preference(
@@ -162,6 +159,7 @@ def search_jobs_for_user(
         )
 
     else:
+
         return {
             "jobs": [],
         }
@@ -185,6 +183,7 @@ def search_jobs_for_user(
                 )
 
             except Exception:
+
                 continue
 
             if not provider_jobs:
@@ -212,6 +211,10 @@ def search_jobs_for_user(
                 if link in seen_links:
                     continue
 
+                # ------------------------------------------
+                # RELEVANCE
+                # ------------------------------------------
+
                 if not is_relevant_job(
                     job,
                     keywords,
@@ -223,7 +226,122 @@ def search_jobs_for_user(
                 jobs.append(job)
 
     # --------------------------------------------------
-    # 3. SAVE / UPDATE DATABASE
+    # 3. COUNTRY FILTER
+    # --------------------------------------------------
+
+    if country and country.strip():
+
+        country_search = (
+            country.strip().lower()
+        )
+
+        jobs = [
+            job
+            for job in jobs
+            if country_search in str(
+                job.get("country", "")
+            ).lower()
+        ]
+
+    # --------------------------------------------------
+    # 4. CITY FILTER
+    # --------------------------------------------------
+
+    if city and city.strip():
+
+        city_search = (
+            city.strip().lower()
+        )
+
+        jobs = [
+            job
+            for job in jobs
+            if city_search in str(
+                job.get("city", "")
+            ).lower()
+        ]
+
+    # --------------------------------------------------
+    # 5. WORK TYPE FILTER
+    # --------------------------------------------------
+
+    if work_type and work_type.strip():
+
+        work_type_search = (
+            work_type.strip().lower()
+        )
+
+        jobs = [
+            job
+            for job in jobs
+            if work_type_search in str(
+                job.get("work_type", "")
+            ).lower()
+        ]
+
+    # --------------------------------------------------
+    # 6. PUBLISHED FILTER
+    # --------------------------------------------------
+
+    if published and published.strip():
+
+        try:
+
+            days = int(
+                published.strip()
+            )
+
+            date_limit = (
+                datetime.utcnow()
+                - timedelta(days=days)
+            )
+
+            filtered_jobs = []
+
+            for job in jobs:
+
+                published_at = job.get(
+                    "published_at"
+                )
+
+                if not published_at:
+                    continue
+
+                try:
+
+                    published_date = (
+                        datetime.fromisoformat(
+                            str(
+                                published_at
+                            ).replace(
+                                "Z",
+                                "+00:00",
+                            )
+                        )
+                    )
+
+                    # Para comparar de forma segura
+                    published_date = (
+                        published_date.replace(
+                            tzinfo=None
+                        )
+                    )
+
+                    if published_date >= date_limit:
+                        filtered_jobs.append(job)
+
+                except (ValueError, TypeError):
+
+                    continue
+
+            jobs = filtered_jobs
+
+        except ValueError:
+
+            pass
+
+    # --------------------------------------------------
+    # 7. SAVE / UPDATE DATABASE
     # --------------------------------------------------
 
     for job in jobs:
@@ -235,24 +353,44 @@ def search_jobs_for_user(
         )
 
         if db_job:
+
             job["id"] = db_job.id
 
     db.commit()
 
     # --------------------------------------------------
-    # 4. MATCH SCORE
+    # 8. MATCH SCORE
     # --------------------------------------------------
 
     for job in jobs:
 
-        job["match_score"] = calculate_match_score(
-            job=job,
-            skill_gap=None,
-            preference=preference,
+        job["match_score"] = (
+            calculate_match_score(
+                job=job,
+                skill_gap=None,
+                preference=preference,
+                search=search,
+            )
         )
 
+        db_job = (
+            db.query(JobOffer)
+            .filter(
+                JobOffer.id == job["id"]
+            )
+            .first()
+        )
+
+        if db_job:
+
+            db_job.match_score = (
+                job["match_score"]
+            )
+
+    db.commit()
+
     # --------------------------------------------------
-    # 5. SORT
+    # 9. SORT
     # --------------------------------------------------
 
     jobs.sort(
@@ -263,7 +401,7 @@ def search_jobs_for_user(
     )
 
     # --------------------------------------------------
-    # 6. RESPONSE
+    # 10. RESPONSE
     # --------------------------------------------------
 
     return {

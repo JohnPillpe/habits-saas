@@ -9,9 +9,14 @@ export default function JobResults({ jobs }: Props) {
     id: job.id,
     company: job.company || "Unknown company",
     title: job.title || "Untitled position",
-    location: job.country || job.city || "Remote",
+    location:
+      job.city && job.country
+        ? `${job.city}, ${job.country}`
+        : job.city || job.country || "Remote",
+    category: job.category || null,
+    salary: job.salary || null,
     employmentType: job.work_type || "Not specified",
-    match: job.match_score ?? 0,
+    match: job.match_score,
     tags: job.tags || [],
   }))
 
@@ -35,9 +40,11 @@ export default function JobResults({ jobs }: Props) {
             id={job.id}
             company={job.company}
             title={job.title}
-            location={job.city || job.country}
-            employmentType={job.work_type}
-            match={job.match_score}
+            location={job.location}
+            category={job.category}
+            salary={job.salary}
+            employmentType={job.employmentType}
+            match={job.match}
             tags={job.tags}
           />
         ))}
@@ -46,3 +53,4 @@ export default function JobResults({ jobs }: Props) {
     </section>
   )
 }
+

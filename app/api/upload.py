@@ -8,7 +8,10 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.auth import get_current_user
 from app.models.models import Usuario, Document
-from app.rag.vector_store import guardar_fragmentos
+from app.rag.vector_store import (
+    guardar_fragmentos,
+    eliminar_documento,
+)
 
 from app.rag.vector_store import get_collection
 
@@ -74,6 +77,30 @@ async def upload_cv(
             status_code=400,
             detail="Only PDF files are supported",
         )
+
+        # -----------------------------------
+    # 0. REMOVE PREVIOUS CV
+    # -----------------------------------
+
+    documento_anterior = (
+        db.query(Document)
+        .filter(
+            Document.usuario_id == usuario.id,
+            Document.tipo == "cv",
+        )
+        .first()
+    )
+
+    if documento_anterior:
+
+        eliminar_documento(
+            usuario_id=usuario.id,
+            nombre_documento=documento_anterior.nombre,
+        )
+
+        db.delete(documento_anterior)
+        db.commit()
+
 
     # -----------------------------------
     # 1. SAVE PDF
