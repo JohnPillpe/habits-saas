@@ -131,3 +131,30 @@ def eliminar_documento(
         collection.delete(ids=ids)
 
     return len(ids)
+
+def obtener_cv_completo(usuario_id: int):
+    collection = get_collection()
+
+    resultados = collection.get(
+        where={"usuario_id": usuario_id},
+        include=["documents", "metadatas"],
+    )
+
+    if not resultados["documents"]:
+        return ""
+
+    pares = list(
+        zip(
+            resultados["documents"],
+            resultados["metadatas"],
+        )
+    )
+
+    pares.sort(
+        key=lambda x: x[1].get("fragmento", 0)
+    )
+
+    return "\n\n".join(
+        documento
+        for documento, _ in pares
+    )

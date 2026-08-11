@@ -24,7 +24,6 @@ def _compact_text(value):
     """
     Normaliza eliminando espacios y separadores.
 
-    Ejemplos:
     Full Stack
     Full-Stack
     FullStack
@@ -43,8 +42,8 @@ def _compact_text(value):
 
 def _get_job_field(job, *names):
     """
-    Permite trabajar tanto con los nombres
-    actuales como con nombres antiguos.
+    Permite trabajar tanto con nombres
+    actuales como antiguos.
     """
 
     for name in names:
@@ -61,9 +60,11 @@ def _keyword_matches(keyword, job_text, compact_job_text):
     Comprueba si una keyword aparece en el job.
     """
 
-    normalized_keyword = _normalize_text(
-        keyword
-    ).lower().strip()
+    normalized_keyword = (
+        _normalize_text(keyword)
+        .lower()
+        .strip()
+    )
 
     if not normalized_keyword:
         return False
@@ -77,9 +78,7 @@ def _keyword_matches(keyword, job_text, compact_job_text):
     if normalized_keyword in job_text:
         return True
 
-    compact_keyword = _compact_text(
-        keyword
-    )
+    compact_keyword = _compact_text(keyword)
 
     if (
         compact_keyword
@@ -90,6 +89,53 @@ def _keyword_matches(keyword, job_text, compact_job_text):
     return False
 
 
+def _keyword_match_score(
+    keyword,
+    title,
+    category,
+    tags,
+    description,
+):
+    """
+    Calcula la relevancia de una keyword.
+
+    Title     = fuerte
+    Category  = medio
+    Tags      = medio
+    Desc      = débil
+    """
+
+    keyword = _normalize_text(keyword).lower().strip()
+
+    if not keyword:
+        return 0
+
+    compact_keyword = _compact_text(keyword)
+
+    title_compact = _compact_text(title)
+    category_compact = _compact_text(category)
+    tags_compact = _compact_text(tags)
+    description_compact = _compact_text(description)
+
+    # ----------------------------------------------
+    # EXACT / COMPACT MATCH
+    # ----------------------------------------------
+
+    if compact_keyword and compact_keyword in title_compact:
+        return 40
+
+    if compact_keyword and compact_keyword in category_compact:
+        return 25
+
+    if compact_keyword and compact_keyword in tags_compact:
+        return 20
+
+    if compact_keyword and compact_keyword in description_compact:
+        return 5
+
+    return 0
+
+
 def calculate_match_score(
     job,
     skill_gap=None,
@@ -97,22 +143,17 @@ def calculate_match_score(
     search=None,
 ):
     """
-    Calculates a fast deterministic match score.
+    Fast deterministic Match Score.
 
-    This is NOT the deep AI career analysis.
+    Maximum: 100
 
-    The score is based on:
+    Prioridades:
 
-    - Desired role / keywords
-    - Job title
-    - Category
-    - Tags
-    - Description
-    - Country
-    - City
-    - Work type
-
-    Maximum score: 100
+    1. Search query
+    2. Desired role
+    3. Country
+    4. City
+    5. Work type
     """
 
     # --------------------------------------------------
@@ -147,75 +188,52 @@ def calculate_match_score(
         )
     ).lower()
 
-    company = _normalize_text(
-        _get_job_field(
-            job,
-            "company",
-            "empresa",
-        )
-    ).lower()
-
-    job_text = " ".join([
-        title,
-        category,
-        tags,
-        description,
-        company,
-    ])
-
-    compact_job_text = _compact_text(
-        job_text
-    )
-
     score = 0
 
-        # --------------------------------------------------
-    # SEARCH QUERY MATCH
-    # --------------------------------------------------
+    # ==================================================
+    # 1. SEARCH QUERY
+    # ==================================================
 
     if search and str(search).strip():
 
-        search_text = _normalize_text(
-            search
-        ).lower().strip()
-
         search_words = [
             word
-            for word in search_text.split()
+            for word in _normalize_text(search)
+            .lower()
+            .split()
             if len(word) > 2
         ]
 
         if search_words:
 
-            matched_search_words = sum(
-                1
-                for word in search_words
-                if _keyword_matches(
-                    word,
-                    job_text,
-                    compact_job_text,
+            search_score = 0
+
+            for word in search_words:
+
+                search_score += _keyword_match_score(
+                    keyword=word,
+                    title=title,
+                    category=category,
+                    tags=tags,
+                    description=description,
                 )
+
+            # Maximum search contribution = 60
+            search_score = min(
+                search_score,
+                60,
             )
 
-            search_ratio = (
-                matched_search_words
-                / len(search_words)
-            )
+            score += search_score
 
-            # Search relevance = maximum 50 points
-            score += round(
-                search_ratio * 50
-            )
-
-
-    # --------------------------------------------------
-    # USER PREFERENCES
-    # --------------------------------------------------
+    # ==================================================
+    # 2. USER PREFERENCES
+    # ==================================================
 
     if preference:
 
         # ----------------------------------------------
-        # 1. DESIRED ROLE
+        # DESIRED ROLE
         # ----------------------------------------------
 
         desired_role = _normalize_text(
@@ -241,22 +259,35 @@ def calculate_match_score(
                     for word in role_words
                     if _keyword_matches(
                         word,
-                        job_text,
-                        compact_job_text,
+                        " ".join([
+                            title,
+                            category,
+                            tags,
+                            description,
+                        ]),
+                        _compact_text(
+                            " ".join([
+                                title,
+                                category,
+                                tags,
+                                description,
+                            ])
+                        ),
                     )
                 )
 
                 role_ratio = (
-                    matched_words / len(role_words)
+                    matched_words
+                    / len(role_words)
                 )
 
-                # Desired role = maximum 50 points
+                # Maximum = 20
                 score += round(
-                    role_ratio * 50
+                    role_ratio * 20
                 )
 
         # ----------------------------------------------
-        # 2. COUNTRY
+        # COUNTRY
         # ----------------------------------------------
 
         target_countries = getattr(
@@ -272,17 +303,19 @@ def calculate_match_score(
         if target_countries and job_country:
 
             country_match = any(
-                _normalize_text(country).lower()
+                _normalize_text(country)
+                .lower()
+                .strip()
                 in job_country
                 for country in target_countries
                 if _normalize_text(country).strip()
             )
 
             if country_match:
-                score += 15
+                score += 10
 
         # ----------------------------------------------
-        # 3. CITY
+        # CITY
         # ----------------------------------------------
 
         target_cities = getattr(
@@ -298,17 +331,19 @@ def calculate_match_score(
         if target_cities and job_city:
 
             city_match = any(
-                _normalize_text(city).lower()
+                _normalize_text(city)
+                .lower()
+                .strip()
                 in job_city
                 for city in target_cities
                 if _normalize_text(city).strip()
             )
 
             if city_match:
-                score += 10
+                score += 5
 
         # ----------------------------------------------
-        # 4. WORK TYPE
+        # WORK TYPE
         # ----------------------------------------------
 
         job_work_type = _normalize_text(
@@ -325,7 +360,7 @@ def calculate_match_score(
                 )
                 and "remote" in job_work_type
             ):
-                score += 15
+                score += 5
 
             elif (
                 getattr(
@@ -335,7 +370,7 @@ def calculate_match_score(
                 )
                 and "hybrid" in job_work_type
             ):
-                score += 15
+                score += 5
 
             elif (
                 getattr(
@@ -348,18 +383,18 @@ def calculate_match_score(
                     or "on-site" in job_work_type
                 )
             ):
-                score += 15
+                score += 5
 
-    # --------------------------------------------------
-    # 5. JOB QUALITY / TITLE SIGNAL
-    # --------------------------------------------------
+    # ==================================================
+    # 3. VALID JOB SIGNAL
+    # ==================================================
 
     if title:
         score += 5
 
-    # --------------------------------------------------
+    # ==================================================
     # LIMIT
-    # --------------------------------------------------
+    # ==================================================
 
     return min(
         max(score, 0),
