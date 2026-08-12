@@ -16,6 +16,10 @@ from app.services.application_answers_service import guardar_application_answers
 from app.career.interview_preparation import generar_preparacion_entrevista
 from app.services.interview_preparation_service import guardar_interview_preparation
 
+from app.services.cv_job_match_service import (
+    calculate_cv_job_match,
+)
+
 
 def construir_job(oferta):
 
@@ -92,6 +96,24 @@ def analizar_oferta_usuario(
     analisis = analizar_oferta(
         cv=cv,
         job=job,
+    )
+
+    # --------------------------------------------------
+    # OFFICIAL MATCH SCORE
+    # --------------------------------------------------
+
+    match_result = calculate_cv_job_match(
+        cv_text=cv,
+        job={
+            "title": oferta.titulo,
+            "description": oferta.descripcion,
+            "category": oferta.categoria,
+            "tags": oferta.tags,
+        },
+    )
+
+    analisis["match_score"] = (
+        match_result["match_score"]
     )
 
     guardar_analisis(

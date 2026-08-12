@@ -8,10 +8,6 @@ from app.services.job_provider_remotive import (
     buscar_ofertas_remotive,
 )
 
-from app.services.job_provider_swissdevjobs import (
-    buscar_ofertas_swissdevjobs,
-)
-
 from app.services.user_job_preference_service import (
     get_user_job_preference,
 )
@@ -28,10 +24,22 @@ from app.services.job_match_service import (
     calculate_match_score,
 )
 
+from app.services.cv_job_match_service import (
+    calculate_cv_job_match,
+)
+
+from app.career.cv_service import (
+    obtener_cv,
+)
+
+from app.services.job_provider_adzuna import (
+    buscar_ofertas_adzuna,
+)
+
 
 JOB_PROVIDERS = [
     buscar_ofertas_remotive,
-    buscar_ofertas_swissdevjobs,
+    buscar_ofertas_adzuna,
 ]
 
 
@@ -44,6 +52,45 @@ def _tags_to_string(tags):
         )
 
     return tags
+
+def _normalize_text(value) -> str:
+    if not value:
+        return ""
+
+    return " ".join(
+        str(value)
+        .strip()
+        .lower()
+        .split()
+    )
+
+
+def _build_job_dedup_key(job: dict) -> str:
+    company = _normalize_text(
+        job.get("company")
+    )
+
+    title = _normalize_text(
+        job.get("title")
+    )
+
+    description = _normalize_text(
+        job.get("description")
+    )
+
+    # Usamos las primeras palabras de la descripción
+    # para identificar anuncios prácticamente idénticos.
+    description_fingerprint = " ".join(
+        description.split()[:40]
+    )
+
+    return (
+        f"{company}|"
+        f"{title}|"
+        f"{description_fingerprint}"
+    )
+
+
 
 
 def _save_job(
@@ -111,6 +158,10 @@ def _save_job(
         "work_type"
     )
 
+    db_job.published_at = job.get(
+    "published_at"
+    )
+
     db_job.source = job.get(
         "source"
     )
@@ -170,6 +221,7 @@ def search_jobs_for_user(
 
     jobs = []
     seen_links = set()
+    seen_job_keys = set()
 
     for keyword in keywords:
 
@@ -210,6 +262,13 @@ def search_jobs_for_user(
 
                 if link in seen_links:
                     continue
+                
+                dedup_key = _build_job_dedup_key(
+                    job
+                )
+
+                if dedup_key in seen_job_keys:
+                    continue
 
                 # ------------------------------------------
                 # RELEVANCE
@@ -222,6 +281,10 @@ def search_jobs_for_user(
                     continue
 
                 seen_links.add(link)
+
+                seen_job_keys.add(
+                    dedup_key
+                )
 
                 jobs.append(job)
 
@@ -362,16 +425,43 @@ def search_jobs_for_user(
     # 8. MATCH SCORE
     # --------------------------------------------------
 
+    cv_text = obtener_cv(user_id)
+
     for job in jobs:
 
-        job["match_score"] = (
-            calculate_match_score(
+        # ----------------------------------------------
+        # WITH CV → CV ↔ JOB MATCH
+        # ----------------------------------------------
+
+        if cv_text:
+
+            match_result = calculate_cv_job_match(
+                cv_text=cv_text,
                 job=job,
-                skill_gap=None,
-                preference=preference,
-                search=search,
             )
-        )
+
+            job["match_score"] = (
+                match_result["match_score"]
+            )
+
+        # ----------------------------------------------
+        # WITHOUT CV → FAST SEARCH MATCH
+        # ----------------------------------------------
+
+        else:
+
+            job["match_score"] = (
+                calculate_match_score(
+                    job=job,
+                    skill_gap=None,
+                    preference=preference,
+                    search=search,
+                )
+            )
+
+        # ----------------------------------------------
+        # SAVE SCORE
+        # ----------------------------------------------
 
         db_job = (
             db.query(JobOffer)
@@ -388,6 +478,8 @@ def search_jobs_for_user(
             )
 
     db.commit()
+
+
 
     # --------------------------------------------------
     # 9. SORT
