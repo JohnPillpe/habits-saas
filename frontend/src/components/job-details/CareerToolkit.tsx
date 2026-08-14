@@ -1,4 +1,6 @@
-import { useState } from "react"
+import {
+  useState,
+} from "react"
 
 import OptimizedCVTab from "./OptimizedCVTab"
 import CoverLetterTab from "./CoverLetterTab"
@@ -18,7 +20,10 @@ export default function CareerToolkit({
   applicationAnswers,
   interviewPreparation,
 }: Props) {
-  const [tab, setTab] = useState("cv")
+  const [
+    tab,
+    setTab,
+  ] = useState("cv")
 
   if (
     !optimizedCV &&
@@ -32,18 +37,26 @@ export default function CareerToolkit({
   return (
     <div className="mt-12">
 
-      <h2 className="text-2xl font-semibold">
-        Generate application materials
-      </h2>
+      {/* HEADER */}
 
-      <p className="mt-1 text-sm text-neutral-500">
-        Choose a document to review and use for this application.
-      </p>
+      <div>
+
+        <h2 className="text-2xl font-semibold text-neutral-900">
+          Generate application materials
+        </h2>
+
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-500">
+          Choose a document to review and use for this application.
+        </p>
+
+      </div>
 
       {/* TABS */}
-      <div className="mt-6 grid grid-cols-4 overflow-hidden rounded-xl border">
+
+      <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border sm:grid-cols-4">
 
         <button
+          type="button"
           onClick={() => setTab("cv")}
           className={`px-4 py-4 text-sm font-medium transition ${
             tab === "cv"
@@ -55,6 +68,7 @@ export default function CareerToolkit({
         </button>
 
         <button
+          type="button"
           onClick={() => setTab("letter")}
           className={`border-l px-4 py-4 text-sm font-medium transition ${
             tab === "letter"
@@ -66,8 +80,9 @@ export default function CareerToolkit({
         </button>
 
         <button
+          type="button"
           onClick={() => setTab("answers")}
-          className={`border-l px-4 py-4 text-sm font-medium transition ${
+          className={`border-t px-4 py-4 text-sm font-medium transition sm:border-l sm:border-t-0 ${
             tab === "answers"
               ? "bg-black text-white"
               : "bg-white text-neutral-700 hover:bg-neutral-50"
@@ -77,8 +92,9 @@ export default function CareerToolkit({
         </button>
 
         <button
+          type="button"
           onClick={() => setTab("interview")}
-          className={`border-l px-4 py-4 text-sm font-medium transition ${
+          className={`border-l border-t px-4 py-4 text-sm font-medium transition sm:border-t-0 ${
             tab === "interview"
               ? "bg-black text-white"
               : "bg-white text-neutral-700 hover:bg-neutral-50"
@@ -90,25 +106,34 @@ export default function CareerToolkit({
       </div>
 
       {/* CONTENT */}
-      <div className="mt-6 rounded-xl border bg-white p-6">
+
+      <div className="mt-6">
 
         {tab === "cv" && (
-          <OptimizedCVTab optimizedCV={optimizedCV} />
+          <OptimizedCVTab
+            optimizedCV={optimizedCV}
+          />
         )}
 
         {tab === "letter" && (
-          <CoverLetterTab coverLetter={coverLetter} />
+          <CoverLetterTab
+            coverLetter={coverLetter}
+          />
         )}
 
         {tab === "answers" && (
           <ApplicationAnswersTab
-            applicationAnswers={applicationAnswers}
+            applicationAnswers={
+              applicationAnswers
+            }
           />
         )}
 
         {tab === "interview" && (
           <InterviewPreparationTab
-            interviewPreparation={interviewPreparation}
+            interviewPreparation={
+              interviewPreparation
+            }
           />
         )}
 

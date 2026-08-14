@@ -14,6 +14,9 @@ ADZUNA_BASE_URL = (
     "https://api.adzuna.com/v1/api/jobs"
 )
 
+ADZUNA_COUNTRY_CODE = "gb"
+ADZUNA_CURRENCY = "£"
+
 
 def buscar_ofertas_adzuna(
     palabra: str,
@@ -24,8 +27,12 @@ def buscar_ofertas_adzuna(
     al formato estándar del sistema.
 
     Adzuna es solamente un provider.
-    No contiene lógica de búsqueda global,
-    relevancia ni scoring.
+
+    No contiene:
+    - lógica de búsqueda global
+    - scoring
+    - relevancia
+    - matching
     """
 
     app_id = ADZUNA_APP_ID
@@ -41,11 +48,9 @@ def buscar_ofertas_adzuna(
             }
         ]
 
-    country_code = "gb"
-
     url = (
         f"{ADZUNA_BASE_URL}/"
-        f"{country_code}/search/1"
+        f"{ADZUNA_COUNTRY_CODE}/search/1"
     )
 
     params = {
@@ -69,7 +74,10 @@ def buscar_ofertas_adzuna(
     except requests.RequestException as e:
         return [
             {
-                "error": str(e)
+                "error": (
+                    "Error connecting to Adzuna: "
+                    f"{str(e)}"
+                )
             }
         ]
 
@@ -92,76 +100,98 @@ def buscar_ofertas_adzuna(
 
     for job in results:
 
-        # DEBUG:
-        # Mostramos temporalmente la respuesta
-        # original de Adzuna para comprobar
-        # exactamente qué campos devuelve.
-        print(
-            "\n========== ADZUNA RAW JOB =========="
+        if not isinstance(job, dict):
+            continue
+
+        # --------------------------------------------------
+        # BASIC DATA
+        # --------------------------------------------------
+
+        title = (
+            job.get("title")
+            or "Unknown"
         )
-        print(job)
-        print(
-            "====================================\n"
+
+        company_data = (
+            job.get("company")
+            or {}
         )
 
-        location = job.get(
-            "location"
-        ) or {}
+        company = (
+            company_data.get(
+                "display_name"
+            )
+            or "Unknown"
+        )
 
-        area = location.get(
-            "area"
-        ) or []
+        url = (
+            job.get("redirect_url")
+            or ""
+        ).strip()
 
-        country = None
-        city = None
+        # --------------------------------------------------
+        # LOCATION
+        # --------------------------------------------------
 
-        if isinstance(area, list):
+        country, city = _build_location(
+            job
+        )
 
-            if area:
-                city = area[-1]
+        # --------------------------------------------------
+        # TAGS / SKILLS
+        # --------------------------------------------------
 
-            if len(area) >= 2:
-                country = area[0]
+        tags = _build_tags(
+            job.get("skills")
+        )
 
-        tags = job.get(
-            "skills"
-        ) or []
+        # --------------------------------------------------
+        # DESCRIPTION
+        # --------------------------------------------------
+
+        # IMPORTANT:
+        # We intentionally use only the description
+        # supplied by the Adzuna API.
+        #
+        # We do NOT scrape the Adzuna website because
+        # Adzuna can return HTTP 403/404 for detail pages.
+
+        description = (
+            job.get("description")
+            or ""
+        ).strip()
+
+        # --------------------------------------------------
+        # NORMALIZE
+        # --------------------------------------------------
 
         resultados.append(
             normalize_job_offer(
 
                 source="Adzuna",
 
-                title=job.get(
-                    "title",
-                    "Unknown",
-                ),
+                title=title,
 
-                company=(
-                    (job.get("company") or {})
-                    .get("display_name")
-                    or "Unknown"
-                ),
+                company=company,
 
-                url=job.get(
-                    "redirect_url",
-                    "",
-                ),
+                url=url,
 
                 category=(
-                    job.get("category", {})
-                    or {}
-                ).get(
-                    "label"
+                    (
+                        job.get(
+                            "category"
+                        )
+                        or {}
+                    ).get(
+                        "label"
+                    )
                 ),
 
                 salary=_build_salary(
                     job
                 ),
 
-                description=job.get(
-                    "description"
-                ),
+                description=description,
 
                 tags=tags,
 
@@ -169,7 +199,9 @@ def buscar_ofertas_adzuna(
 
                 city=city,
 
-                work_type=job.get("contract_time"),
+                work_type=_build_work_type(
+                    job
+                ),
 
                 published_at=job.get(
                     "created"
@@ -182,7 +214,135 @@ def buscar_ofertas_adzuna(
     return resultados
 
 
+def _build_location(job):
+    """
+    Convierte la localización de Adzuna
+    al formato estándar del sistema.
+    """
+
+    location = (
+        job.get("location")
+        or {}
+    )
+
+    area = (
+        location.get("area")
+        or []
+    )
+
+    country = None
+    city = None
+
+    if isinstance(area, list):
+
+        cleaned_area = [
+            str(value).strip()
+            for value in area
+            if value
+        ]
+
+        if cleaned_area:
+            country = (
+                cleaned_area[0]
+            )
+
+        if len(cleaned_area) >= 2:
+            city = (
+                cleaned_area[-1]
+            )
+
+    display_name = (
+        location.get(
+            "display_name"
+        )
+    )
+
+    if not city and display_name:
+
+        city = (
+            str(display_name)
+            .split(",")[0]
+            .strip()
+        )
+
+    return country, city
+
+
+def _build_tags(skills):
+    """
+    Normaliza skills de Adzuna.
+    """
+
+    if not skills:
+        return []
+
+    if isinstance(skills, list):
+
+        return [
+            str(skill).strip()
+            for skill in skills
+            if skill is not None
+        ]
+
+    return [
+        str(skills).strip()
+    ]
+
+
+def _build_work_type(job):
+    """
+    Normaliza el tipo de contrato.
+    """
+
+    contract_time = (
+        job.get("contract_time")
+        or ""
+    ).strip().lower()
+
+    contract_type = (
+        job.get("contract_type")
+        or ""
+    ).strip().lower()
+
+    if contract_time:
+        return _normalize_work_type(
+            contract_time
+        )
+
+    if contract_type:
+        return _normalize_work_type(
+            contract_type
+        )
+
+    return None
+
+
+def _normalize_work_type(value):
+    """
+    Normaliza valores conocidos de Adzuna.
+    """
+
+    mapping = {
+        "full_time": "full_time",
+        "part_time": "part_time",
+        "contract": "contract",
+        "permanent": "permanent",
+        "temporary": "temporary",
+    }
+
+    return mapping.get(
+        value,
+        value,
+    )
+
+
 def _build_salary(job):
+    """
+    Construye el salario normalizado.
+
+    Adzuna UK puede no proporcionar
+    salary_currency, por lo que usamos GBP.
+    """
 
     minimum = job.get(
         "salary_min"
@@ -192,28 +352,74 @@ def _build_salary(job):
         "salary_max"
     )
 
-    if minimum is None and maximum is None:
+    if (
+        minimum is None
+        and maximum is None
+    ):
         return None
 
-    currency = job.get(
-        "salary_currency"
+    currency = (
+        job.get(
+            "salary_currency"
+        )
+        or ADZUNA_CURRENCY
     )
 
-    if minimum is not None and maximum is not None:
-        return (
-            f"{currency or ''}"
-            f"{minimum:,.0f} - "
-            f"{maximum:,.0f}"
-        ).strip()
+    minimum_text = (
+        _format_salary_number(
+            minimum
+        )
+        if minimum is not None
+        else None
+    )
 
-    if minimum is not None:
+    maximum_text = (
+        _format_salary_number(
+            maximum
+        )
+        if maximum is not None
+        else None
+    )
+
+    if (
+        minimum_text is not None
+        and maximum_text is not None
+    ):
+
         return (
-            f"{currency or ''}"
-            f"{minimum:,.0f}+"
-        ).strip()
+            f"{currency}"
+            f"{minimum_text} - "
+            f"{currency}"
+            f"{maximum_text}"
+        )
+
+    if minimum_text is not None:
+
+        return (
+            f"{currency}"
+            f"{minimum_text}+"
+        )
 
     return (
-        f"Up to "
-        f"{currency or ''}"
-        f"{maximum:,.0f}"
-    ).strip()
+        "Up to "
+        f"{currency}"
+        f"{maximum_text}"
+    )
+
+
+def _format_salary_number(value):
+    """
+    Ejemplo:
+
+    28498.42 -> 28,498
+    70000    -> 70,000
+    """
+
+    try:
+        return f"{float(value):,.0f}"
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return str(value)
