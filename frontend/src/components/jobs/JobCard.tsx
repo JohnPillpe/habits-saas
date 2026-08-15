@@ -13,6 +13,22 @@ type JobCardProps = {
   tags?: string | string[]
 }
 
+function getMatchColor(match?: number | null) {
+  if (typeof match !== "number") {
+    return "#9A9382"
+  }
+
+  if (match >= 70) {
+    return "#2B4ACC"
+  }
+
+  if (match >= 45) {
+    return "#C2410C"
+  }
+
+  return "#9A9382"
+}
+
 export default function JobCard({
   id,
   company,
@@ -29,31 +45,51 @@ export default function JobCard({
       ? tags.split(",")
       : []
 
-  const hasMatch =
-    typeof match === "number"
+  const hasMatch = typeof match === "number"
+
+  const matchColor = getMatchColor(match)
 
   return (
-    <Card className="rounded-2xl border border-neutral-200 bg-white p-6 transition hover:border-neutral-300 hover:shadow-lg">
+    <Card
+      className="
+        rounded-xl
+        border
+        border-[#E4E4DC]
+        bg-white
+        p-6
+        shadow-[0_1px_3px_rgba(0,0,0,0.06)]
+        transition
+        hover:shadow-[0_2px_6px_rgba(0,0,0,0.08)]
+      "
+    >
 
       <div className="flex items-start justify-between gap-6">
 
         <div className="flex gap-5">
 
           {hasMatch && (
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-100">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-50">
+
               <div className="text-center">
-                <p className="text-2xl font-bold">
+
+                <p
+                  className="text-2xl font-bold"
+                  style={{ color: matchColor }}
+                >
                   {match}%
                 </p>
 
-                <p className="text-[10px] uppercase text-neutral-500">
-                  Match
+                <p className="font-mono text-[10px] uppercase text-neutral-500">
+                  MATCH
                 </p>
+
               </div>
+
             </div>
           )}
 
           <div>
+
             <h3 className="text-xl font-semibold text-neutral-900">
               {title}
             </h3>
@@ -76,6 +112,7 @@ export default function JobCard({
               )}
 
             </div>
+
           </div>
 
         </div>
@@ -88,14 +125,25 @@ export default function JobCard({
 
       {tagList.length > 0 && (
         <div className="mt-5 flex flex-wrap gap-2">
+
           {tagList.slice(0, 5).map((tag, index) => (
             <span
               key={`${tag}-${index}`}
-              className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-700"
+              className="
+                rounded-full
+                border
+                border-[#E4E4DC]
+                bg-white
+                px-3
+                py-1
+                text-xs
+                text-neutral-700
+              "
             >
               {tag.trim()}
             </span>
           ))}
+
         </div>
       )}
 

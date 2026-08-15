@@ -42,7 +42,20 @@ export default function JobHeader({
         {company}
       </p>
 
-      <div className="mt-6 grid gap-4 rounded-2xl border border-neutral-200 p-6 sm:grid-cols-2">
+      <div
+        className="
+          mt-6
+          grid
+          gap-4
+          rounded-lg
+          border-2
+          border-[#14151A]
+          bg-white
+          p-6
+          shadow-[3px_3px_0_#14151A]
+          sm:grid-cols-2
+        "
+      >
 
         {category && (
           <div>
@@ -106,20 +119,34 @@ export default function JobHeader({
 
         {tags.length > 0 && (
           <div className="sm:col-span-2">
+
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
               Tags
             </p>
 
             <div className="mt-2 flex flex-wrap gap-2">
+
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700"
+                  className="
+                    rounded-full
+                    border
+                    border-[#E4E4DC]
+                    bg-white
+                    px-3
+                    py-1
+                    text-xs
+                    font-medium
+                    text-neutral-700
+                  "
                 >
                   {tag}
                 </span>
               ))}
+
             </div>
+
           </div>
         )}
 
@@ -132,12 +159,34 @@ export default function JobHeader({
             href={originalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg border border-neutral-300 px-5 py-2.5 text-sm font-medium transition hover:bg-neutral-50"
+            className="
+              rounded-lg
+              border-2
+              border-[#14151A]
+              bg-white
+              px-5
+              py-2.5
+              text-sm
+              font-medium
+              text-[#14151A]
+              transition-all
+              hover:bg-neutral-50
+            "
           >
             Open Original Job
           </a>
         ) : (
-          <span className="rounded-lg border border-neutral-200 px-5 py-2.5 text-sm text-neutral-400">
+          <span
+            className="
+              rounded-lg
+              border-2
+              border-neutral-200
+              px-5
+              py-2.5
+              text-sm
+              text-neutral-400
+            "
+          >
             Original job unavailable
           </span>
         )}
@@ -145,7 +194,24 @@ export default function JobHeader({
         <button
           onClick={onAnalyze}
           disabled={loading}
-          className="rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="
+            rounded-lg
+            border-2
+            border-[#14151A]
+            bg-[#2B4ACC]
+            px-5
+            py-2.5
+            text-sm
+            font-medium
+            text-white
+            shadow-[3px_3px_0_#14151A]
+            transition-all
+            hover:translate-x-[2px]
+            hover:translate-y-[2px]
+            hover:shadow-[1px_1px_0_#14151A]
+            disabled:cursor-not-allowed
+            disabled:opacity-60
+          "
         >
           {loading ? "Analyzing..." : "Analyze with AI"}
         </button>
