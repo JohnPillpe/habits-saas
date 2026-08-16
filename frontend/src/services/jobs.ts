@@ -8,37 +8,76 @@ export type JobFilters = {
   workType: string
 }
 
+export type JobLocation = {
+  country: string
+  city: string
+}
+
 async function handleResponse(response: Response) {
   if (!response.ok) {
     const error = await response.text()
-    throw new Error(error || `Request failed: ${response.status}`)
+
+    throw new Error(
+      error || `Request failed: ${response.status}`
+    )
   }
 
   return response.json()
 }
 
-export async function searchJobs(filters: JobFilters) {
+/*
+ * --------------------------------------------------
+ * BUILD SEARCH PARAMS
+ * --------------------------------------------------
+ *
+ * Single source of truth for all job searches.
+ */
+
+function buildJobSearchParams(
+  filters: JobFilters,
+) {
   const params = new URLSearchParams()
 
-  if (filters.keyword.trim()) {
-    params.set("keyword", filters.keyword.trim())
+  const keyword = filters.keyword?.trim()
+  const country = filters.country?.trim()
+  const city = filters.city?.trim()
+  const published = filters.published?.trim()
+  const workType = filters.workType?.trim()
+
+  if (keyword) {
+    params.set("keyword", keyword)
   }
 
-  if (filters.country.trim()) {
-    params.set("country", filters.country.trim())
+  if (country) {
+    params.set("country", country)
   }
 
-  if (filters.city.trim()) {
-    params.set("city", filters.city.trim())
+  if (city) {
+    params.set("city", city)
   }
 
-  if (filters.published) {
-    params.set("published", filters.published)
+  if (published) {
+    params.set("published", published)
   }
 
-  if (filters.workType.trim()) {
-    params.set("workType", filters.workType.trim())
+  if (workType) {
+    params.set("workType", workType)
   }
+
+  return params
+}
+
+/*
+ * --------------------------------------------------
+ * PUBLIC JOBS
+ * --------------------------------------------------
+ */
+
+export async function searchJobs(
+  filters: JobFilters,
+) {
+  const params =
+    buildJobSearchParams(filters)
 
   const response = await fetch(
     `${API_URL}/job-offers/public?${params.toString()}`
@@ -47,11 +86,37 @@ export async function searchJobs(filters: JobFilters) {
   return handleResponse(response)
 }
 
-export async function getPublicJobs(filters: JobFilters) {
+export async function getPublicJobs(
+  filters: JobFilters,
+) {
   return searchJobs(filters)
 }
 
-export async function getJobById(id: string) {
+/*
+ * --------------------------------------------------
+ * JOB LOCATIONS
+ * --------------------------------------------------
+ */
+
+export async function getJobLocations(): Promise<
+  JobLocation[]
+> {
+  const response = await fetch(
+    `${API_URL}/job-offers/locations`
+  )
+
+  return handleResponse(response)
+}
+
+/*
+ * --------------------------------------------------
+ * JOB DETAIL
+ * --------------------------------------------------
+ */
+
+export async function getJobById(
+  id: string,
+) {
   const response = await fetch(
     `${API_URL}/job-offers/public/${id}`
   )
@@ -59,21 +124,34 @@ export async function getJobById(id: string) {
   return handleResponse(response)
 }
 
-export async function analyzeJob(id: string) {
-  const token = localStorage.getItem("token")
+/*
+ * --------------------------------------------------
+ * AI ANALYSIS
+ * --------------------------------------------------
+ */
+
+export async function analyzeJob(
+  id: string,
+) {
+  const token =
+    localStorage.getItem("token")
 
   if (!token) {
-    throw new Error("Authentication required")
+    throw new Error(
+      "Authentication required"
+    )
   }
 
   const response = await fetch(
     `${API_URL}/api/career/analyze`,
     {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+
       body: JSON.stringify({
         job_offer_id: Number(id),
       }),
@@ -82,6 +160,12 @@ export async function analyzeJob(id: string) {
 
   return handleResponse(response)
 }
+
+/*
+ * --------------------------------------------------
+ * OPTIMIZED CV
+ * --------------------------------------------------
+ */
 
 export async function getOptimizedCV(
   jobId: string,
@@ -99,6 +183,12 @@ export async function getOptimizedCV(
   return handleResponse(response)
 }
 
+/*
+ * --------------------------------------------------
+ * COVER LETTER
+ * --------------------------------------------------
+ */
+
 export async function getCoverLetter(
   jobId: string,
   token: string,
@@ -114,6 +204,12 @@ export async function getCoverLetter(
 
   return handleResponse(response)
 }
+
+/*
+ * --------------------------------------------------
+ * APPLICATION ANSWERS
+ * --------------------------------------------------
+ */
 
 export async function getApplicationAnswers(
   jobId: string,
@@ -131,6 +227,12 @@ export async function getApplicationAnswers(
   return handleResponse(response)
 }
 
+/*
+ * --------------------------------------------------
+ * INTERVIEW PREPARATION
+ * --------------------------------------------------
+ */
+
 export async function getInterviewPreparation(
   jobId: string,
   token: string,
@@ -147,36 +249,26 @@ export async function getInterviewPreparation(
   return handleResponse(response)
 }
 
+/*
+ * --------------------------------------------------
+ * AUTHENTICATED SEARCH
+ * --------------------------------------------------
+ */
+
 export async function searchJobsForUser(
   filters: JobFilters,
 ) {
-  const token = localStorage.getItem("token")
+  const token =
+    localStorage.getItem("token")
 
   if (!token) {
-    throw new Error("Authentication required")
+    throw new Error(
+      "Authentication required"
+    )
   }
 
-  const params = new URLSearchParams()
-
-  if (filters.keyword.trim()) {
-    params.set("keyword", filters.keyword.trim())
-  }
-
-  if (filters.country.trim()) {
-    params.set("country", filters.country.trim())
-  }
-
-  if (filters.city.trim()) {
-    params.set("city", filters.city.trim())
-  }
-
-  if (filters.published) {
-    params.set("published", filters.published)
-  }
-
-  if (filters.workType.trim()) {
-    params.set("workType", filters.workType.trim())
-  }
+  const params =
+    buildJobSearchParams(filters)
 
   const response = await fetch(
     `${API_URL}/job-offers/search?${params.toString()}`,
@@ -184,7 +276,7 @@ export async function searchJobsForUser(
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    },
+    }
   )
 
   return handleResponse(response)
