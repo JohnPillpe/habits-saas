@@ -231,7 +231,7 @@ def search_jobs_for_user(
 
                 provider_jobs = provider(
                     palabra=keyword,
-                    max_ofertas=10,
+                    max_ofertas=50,
                 )
 
             except Exception:

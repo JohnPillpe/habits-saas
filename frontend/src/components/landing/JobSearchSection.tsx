@@ -1,10 +1,6 @@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-
-type LocationOption = {
-  country: string
-  city: string
-}
+import LocationCombobox from "@/components/ui/location-combobox"
 
 type Props = {
   keyword: string
@@ -22,10 +18,8 @@ type Props = {
   workType: string
   setWorkType: (value: string) => void
 
-  locations: LocationOption[]
-  loading: boolean
-
   onSearch: () => void
+  loading?: boolean
 }
 
 export default function JobSearchSection({
@@ -39,40 +33,23 @@ export default function JobSearchSection({
   setPublished,
   workType,
   setWorkType,
-  locations,
-  loading,
   onSearch,
+  loading = false,
 }: Props) {
-  const countries = Array.from(
-    new Set(
-      locations
-        .map((location) => location.country)
-        .filter(Boolean)
-    )
-  ).sort()
-
-  const cities = Array.from(
-    new Set(
-      locations
-        .filter((location) => {
-          if (!country.trim()) {
-            return true
-          }
-
-          return location.country
-            ?.toLowerCase()
-            .includes(country.trim().toLowerCase())
-        })
-        .map((location) => location.city)
-        .filter(Boolean)
-    )
-  ).sort()
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault()
+    onSearch()
+  }
 
-    if (!loading) {
-      onSearch()
+  function handleCountryChange(value: string) {
+    setCountry(value)
+
+    // A city selected for another country
+    // should never remain active.
+    if (!value.trim()) {
+      setCity("")
     }
   }
 
@@ -81,100 +58,47 @@ export default function JobSearchSection({
       onSubmit={handleSubmit}
       className="space-y-6"
     >
-      {/* ROLE / KEYWORDS */}
-
       <div>
-        <label
-          htmlFor="job-keyword"
-          className="mb-2 block text-sm font-medium"
-        >
+        <label className="mb-2 block text-sm font-medium">
           Role / Keywords
         </label>
 
         <Input
-          id="job-keyword"
           placeholder="Backend Python"
           value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          autoComplete="off"
+          onChange={(e) =>
+            setKeyword(e.target.value)
+          }
         />
       </div>
 
-      {/* FILTERS */}
-
       <div className="grid gap-4 md:grid-cols-4">
 
-        {/* COUNTRY */}
+        <LocationCombobox
+          type="country"
+          value={country}
+          onChange={handleCountryChange}
+          placeholder="Country"
+        />
 
-        <div>
-          <label
-            htmlFor="job-country"
-            className="sr-only"
-          >
-            Country
-          </label>
-
-          <Input
-            id="job-country"
-            list="country-options"
-            placeholder="Country"
-            value={country}
-            onChange={(e) => {
-              setCountry(e.target.value)
-
-              // Si cambia el país, limpiamos la ciudad
-              // para evitar combinaciones inválidas.
-              if (city) {
-                setCity("")
-              }
-            }}
-            autoComplete="off"
-          />
-
-          <datalist id="country-options">
-            {countries.map((countryOption) => (
-              <option
-                key={countryOption}
-                value={countryOption}
-              />
-            ))}
-          </datalist>
-        </div>
-
-        {/* CITY */}
-
-        <div>
-          <label
-            htmlFor="job-city"
-            className="sr-only"
-          >
-            City
-          </label>
-
-          <Input
-            id="job-city"
-            list="city-options"
-            placeholder="City"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            autoComplete="off"
-          />
-
-          <datalist id="city-options">
-            {cities.map((cityOption) => (
-              <option
-                key={cityOption}
-                value={cityOption}
-              />
-            ))}
-          </datalist>
-        </div>
-
-        {/* PUBLISHED */}
+        <LocationCombobox
+          type="city"
+          value={city}
+          onChange={setCity}
+          country={country}
+          placeholder={
+            country
+              ? "City"
+              : "Select country first"
+          }
+          disabled={!country.trim()}
+        />
 
         <select
           value={published}
-          onChange={(e) => setPublished(e.target.value)}
+          onChange={(e) =>
+            setPublished(e.target.value)
+          }
           className="
             h-10
             w-full
@@ -185,18 +109,32 @@ export default function JobSearchSection({
             text-sm
           "
         >
-          <option value="">Published</option>
-          <option value="1">Last 24 hours</option>
-          <option value="3">Last 3 days</option>
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-        </select>
+          <option value="">
+            Published
+          </option>
 
-        {/* WORK TYPE */}
+          <option value="1">
+            Last 24 hours
+          </option>
+
+          <option value="3">
+            Last 3 days
+          </option>
+
+          <option value="7">
+            Last 7 days
+          </option>
+
+          <option value="30">
+            Last 30 days
+          </option>
+        </select>
 
         <select
           value={workType}
-          onChange={(e) => setWorkType(e.target.value)}
+          onChange={(e) =>
+            setWorkType(e.target.value)
+          }
           className="
             h-10
             w-full
@@ -207,15 +145,23 @@ export default function JobSearchSection({
             text-sm
           "
         >
-          <option value="">Work Type</option>
-          <option value="Remote">Remote</option>
-          <option value="Hybrid">Hybrid</option>
-          <option value="On-site">On-site</option>
+          <option value="">
+            Work Type
+          </option>
+
+          <option value="Remote">
+            Remote
+          </option>
+
+          <option value="Hybrid">
+            Hybrid
+          </option>
+
+          <option value="On-site">
+            On-site
+          </option>
         </select>
-
       </div>
-
-      {/* SEARCH */}
 
       <Button
         type="submit"
@@ -223,7 +169,6 @@ export default function JobSearchSection({
       >
         {loading ? "Searching..." : "Search Jobs"}
       </Button>
-
     </form>
   )
 }

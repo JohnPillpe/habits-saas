@@ -11,11 +11,20 @@ from app.core.auth import get_current_user
 from app.models.models import Usuario
 from app.services.job_search_service import search_jobs_for_user
 
+from app.services.location_service import (
+    REGIONS,
+    COUNTRIES,
+    normalize_country,
+    get_countries_for_region,
+    get_cities,
+)
+
 
 router = APIRouter(
     prefix="/job-offers",
     tags=["Jobs"],
 )
+
 
 
 @router.get("/public")
@@ -132,6 +141,254 @@ def listar_ofertas_publicas(
         }
         for job in jobs
     ]
+
+@router.get("/locations")
+def get_job_locations(
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(
+            JobOffer.country,
+            JobOffer.city,
+        )
+        .filter(
+            JobOffer.country.isnot(None),
+            JobOffer.city.isnot(None),
+        )
+        .distinct()
+        .order_by(
+            JobOffer.country.asc(),
+            JobOffer.city.asc(),
+        )
+        .all()
+    )
+
+    return [
+        {
+            "country": country,
+            "city": city,
+        }
+        for country, city in rows
+        if country and city
+    ]
+
+
+@router.get("/locations/countries")
+def search_countries(
+    q: str | None = None,
+    region: str | None = None,
+):
+    """
+    Country / Region autocomplete.
+
+    - Sin query: devuelve regiones + países.
+    - q=fra: devuelve France.
+    - q=eur: devuelve Europe como región.
+    - q=uk: devuelve UK como región + Ukraine como país.
+    - region=Europe: devuelve países europeos.
+    - region=Europe&q=fra: devuelve France.
+    """
+
+    query = (q or "").strip().lower()
+    selected_region = (region or "").strip()
+
+    # --------------------------------------------------
+    # 1. COUNTRIES BASE
+    # --------------------------------------------------
+
+    if selected_region:
+        countries = get_countries_for_region(
+            selected_region
+        )
+    else:
+        countries = list(COUNTRIES)
+
+    # --------------------------------------------------
+    # 2. COUNTRY SEARCH
+    # --------------------------------------------------
+
+    if query:
+
+        exact_matches = []
+        prefix_matches = []
+        contains_matches = []
+
+        for country in countries:
+
+            country_lower = country.lower()
+
+            if country_lower == query:
+                exact_matches.append(country)
+
+            elif country_lower.startswith(query):
+                prefix_matches.append(country)
+
+            elif query in country_lower:
+                contains_matches.append(country)
+
+        countries = (
+            exact_matches
+            + prefix_matches
+            + contains_matches
+        )
+
+    else:
+        countries = sorted(
+            countries,
+            key=str.lower,
+        )
+
+    # --------------------------------------------------
+    # 3. REGIONS
+    # --------------------------------------------------
+
+    if selected_region:
+
+        # Si ya hemos seleccionado una región,
+        # no necesitamos volver a mostrar todas
+        # las regiones.
+        regions = [
+            selected_region
+        ]
+
+    else:
+
+        regions = sorted(
+            [
+                region_name
+                for region_name in REGIONS
+                if (
+                    not query
+                    or query in region_name.lower()
+                )
+            ],
+            key=str.lower,
+        )
+
+    # --------------------------------------------------
+    # 4. RESPONSE
+    # --------------------------------------------------
+
+    return {
+        "regions": regions,
+        "countries": countries[:50],
+    }
+
+
+@router.get("/locations/cities")
+def search_cities(
+    q: str | None = None,
+    country: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    City autocomplete.
+
+    Country is optional.
+
+    Examples:
+
+        /locations/cities?q=par
+
+        /locations/cities?q=par&country=France
+
+        /locations/cities?country=France
+
+    Uses:
+    1. Location catalog
+    2. Cities already stored in JobOffer
+    """
+
+    # --------------------------------------------------
+    # 1. NORMALIZE INPUT
+    # --------------------------------------------------
+
+    city_query = (q or "").strip()
+    selected_country = normalize_country(country)
+
+    # --------------------------------------------------
+    # 2. CATALOG
+    # --------------------------------------------------
+
+    catalog_cities = get_cities(
+        country=selected_country,
+        query=city_query,
+    )
+
+    # --------------------------------------------------
+    # 3. DATABASE
+    # --------------------------------------------------
+
+    db_query = (
+        db.query(JobOffer.city)
+        .filter(
+            JobOffer.city.isnot(None),
+            JobOffer.city != "",
+        )
+    )
+
+    # --------------------------------------------------
+    # COUNTRY FILTER
+    # --------------------------------------------------
+
+    if selected_country:
+
+        db_query = db_query.filter(
+            JobOffer.country.ilike(
+                selected_country
+            )
+        )
+
+    # --------------------------------------------------
+    # CITY FILTER
+    # --------------------------------------------------
+
+    if city_query:
+
+        db_query = db_query.filter(
+            JobOffer.city.ilike(
+                f"%{city_query}%"
+            )
+        )
+
+    # --------------------------------------------------
+    # DATABASE RESULTS
+    # --------------------------------------------------
+
+    database_cities = [
+        city
+        for (city,) in (
+            db_query
+            .distinct()
+            .order_by(
+                JobOffer.city.asc()
+            )
+            .limit(100)
+            .all()
+        )
+        if city
+    ]
+
+    # --------------------------------------------------
+    # 4. MERGE CATALOG + DATABASE
+    # --------------------------------------------------
+
+    cities = sorted(
+        set(
+            catalog_cities
+            + database_cities
+        ),
+        key=str.lower,
+    )
+
+    # --------------------------------------------------
+    # 5. RESPONSE
+    # --------------------------------------------------
+
+    return cities[:50]
+
+
+
 
 @router.get("/public/{job_id}")
 def obtener_oferta_publica(

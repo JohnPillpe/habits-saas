@@ -5,6 +5,34 @@ from app.services.job_normalizer_service import (
 )
 
 
+def extract_country(value: str | None) -> str | None:
+    """
+    Intenta extraer un país desde el campo
+    candidate_required_location de Remotive.
+
+    Remotive puede devolver valores como:
+
+    France
+    United Kingdom
+    Europe, EMEA, UK, Germany, France
+    Worldwide
+    Northern America, Europe, UK, France
+
+    Por ahora conservamos el valor completo cuando
+    no podemos identificar un país de forma segura.
+    """
+
+    if not value:
+        return None
+
+    value = str(value).strip()
+
+    if not value:
+        return None
+
+    return value
+
+
 def buscar_ofertas_remotive(
     palabra: str,
     max_ofertas: int = 5,
@@ -79,12 +107,15 @@ def buscar_ofertas_remotive(
         )
 
         if isinstance(tags, list):
+
             tags_text = " ".join(
                 str(tag)
                 for tag in tags
                 if tag is not None
             )
+
         else:
+
             tags_text = str(tags)
 
         searchable_text = (
@@ -95,11 +126,20 @@ def buscar_ofertas_remotive(
             not palabra_lower
             or palabra_lower in searchable_text
         ):
-            jobs_filtrados.append(job)
+
+            jobs_filtrados.append(
+                job
+            )
 
     ofertas = []
 
     for job in jobs_filtrados[:max_ofertas]:
+
+        candidate_location = (
+            job.get(
+                "candidate_required_location"
+            )
+        )
 
         ofertas.append(
             normalize_job_offer(
@@ -140,8 +180,8 @@ def buscar_ofertas_remotive(
 
                 work_type="Remote",
 
-                country=job.get(
-                    "candidate_required_location"
+                country=extract_country(
+                    candidate_location
                 ),
 
                 city=None,
