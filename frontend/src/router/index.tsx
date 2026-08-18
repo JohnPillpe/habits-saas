@@ -4,6 +4,8 @@ import Landing from "@/pages/Landing"
 import JobDetails from "@/pages/JobDetails"
 import Login from "@/pages/Login"
 import Signup from "@/pages/Signup"
+import ForgotPassword from "@/pages/ForgotPassword"
+import ResetPassword from "@/pages/ResetPassword"
 import Profile from "@/pages/Profile"
 
 export const router = createBrowserRouter([
@@ -11,21 +13,34 @@ export const router = createBrowserRouter([
     path: "/",
     element: <Landing />,
   },
+
   {
     path: "/jobs/:id",
     element: <JobDetails />,
   },
+
   {
     path: "/login",
     element: <Login />,
   },
+
   {
     path: "/signup",
     element: <Signup />,
   },
+
   {
     path: "/profile",
     element: <Profile />,
   },
 
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />,
+  },
+
+  {
+    path: "/reset-password",
+    element: <ResetPassword />,
+  },
 ])

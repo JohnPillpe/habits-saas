@@ -89,3 +89,40 @@ def get_current_user(
         )
 
     return usuario
+
+def crear_token_reset_password(email: str):
+    expire = datetime.utcnow() + timedelta(
+        minutes=30
+    )
+
+    return jwt.encode(
+        {
+            "sub": email,
+            "type": "password_reset",
+            "exp": expire,
+        },
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
+
+
+def verificar_token_reset_password(token: str):
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+
+        if payload.get("type") != "password_reset":
+            return None
+
+        email = payload.get("sub")
+
+        if not email:
+            return None
+
+        return email
+
+    except JWTError:
+        return None

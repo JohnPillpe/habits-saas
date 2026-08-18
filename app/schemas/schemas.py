@@ -37,3 +37,11 @@ class UserJobPreferenceResponse(UserJobPreferenceCreate):
 
     id: int
     user_id: int
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
