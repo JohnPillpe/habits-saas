@@ -3,7 +3,6 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-
 class UsuarioCreate(BaseModel):
     email: str
     password: str
@@ -22,6 +21,7 @@ class UsuarioResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserJobPreferenceCreate(BaseModel):
     desired_role: str
     target_countries: list[str]
@@ -38,6 +38,7 @@ class UserJobPreferenceResponse(UserJobPreferenceCreate):
     id: int
     user_id: int
 
+
 class ForgotPasswordRequest(BaseModel):
     email: str
 
@@ -45,3 +46,8 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str

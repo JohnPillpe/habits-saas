@@ -14,6 +14,7 @@ from app.rag.vector_store import (
 )
 
 from app.rag.vector_store import get_collection
+from app.services.document_service import listar_cvs
 
 
 router = APIRouter(
@@ -182,16 +183,20 @@ def has_cv(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(get_current_user),
 ):
-    collection = get_collection()
-
-    resultados = collection.get(
-        where={"usuario_id": usuario.id},
-        include=["documents", "metadatas"],
+    cvs = listar_cvs(
+        db,
+        usuario.id,
     )
 
-    documentos = resultados.get("documents", [])
+    ultimo_cv = cvs[0] if cvs else None
 
     return {
-        "has_cv": len(documentos) > 0
+        "has_cv": ultimo_cv is not None,
+        "email": usuario.email,
+        "filename": (
+            ultimo_cv.nombre
+            if ultimo_cv
+            else None
+        ),
     }
 

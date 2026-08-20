@@ -7,7 +7,7 @@ import { useJobs } from "@/context/JobContext"
 
 import {
   getJobLocations,
-  searchJobsForUser,
+  searchJobs,
 } from "@/services/jobs"
 
 import JobResults from "../jobs/JobResults"
@@ -90,28 +90,28 @@ export default function SearchTabs() {
     if (searching) {
       return
     }
-
+  
     try {
       setSearching(true)
       setSearchError(null)
-
-      const data = await searchJobsForUser(filters)
-
+  
+      const data = await searchJobs(filters)
+  
       setJobs(data)
       setShowResults(true)
-
+  
     } catch (error) {
       console.error(
         "Job search failed:",
         error
       )
-
+  
       setSearchError(
         error instanceof Error
           ? error.message
           : "Unable to search jobs."
       )
-
+  
     } finally {
       setSearching(false)
     }

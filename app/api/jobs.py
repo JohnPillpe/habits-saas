@@ -26,6 +26,9 @@ router = APIRouter(
 )
 
 
+# ============================================================
+# PUBLIC JOB SEARCH
+# ============================================================
 
 @router.get("/public")
 def listar_ofertas_publicas(
@@ -37,6 +40,17 @@ def listar_ofertas_publicas(
     db: Session = Depends(get_db),
 ):
     query = db.query(JobOffer)
+
+    # --------------------------------------------------
+    # Ignore incomplete / pasted placeholder jobs
+    # --------------------------------------------------
+
+    query = query.filter(
+        JobOffer.enlace.isnot(None),
+        JobOffer.enlace != "",
+        JobOffer.titulo.isnot(None),
+        JobOffer.titulo != "Pasted Job",
+    )
 
     # --------------------------------------------------
     # KEYWORD
@@ -109,9 +123,11 @@ def listar_ofertas_publicas(
     # EXECUTE
     # --------------------------------------------------
 
-    jobs = query.order_by(
-        JobOffer.published_at.desc()
-    ).all()
+    jobs = (
+        query
+        .order_by(JobOffer.published_at.desc())
+        .all()
+    )
 
     return [
         {
@@ -137,10 +153,18 @@ def listar_ofertas_publicas(
             ),
             "logo": job.logo,
             "source": job.source,
-            "match_score": job.match_score,
+
+            # IMPORTANT:
+            # Public users NEVER receive personalized Match Score.
+            "match_score": None,
         }
         for job in jobs
     ]
+
+
+# ============================================================
+# LOCATIONS
+# ============================================================
 
 @router.get("/locations")
 def get_job_locations(
@@ -178,23 +202,8 @@ def search_countries(
     q: str | None = None,
     region: str | None = None,
 ):
-    """
-    Country / Region autocomplete.
-
-    - Sin query: devuelve regiones + países.
-    - q=fra: devuelve France.
-    - q=eur: devuelve Europe como región.
-    - q=uk: devuelve UK como región + Ukraine como país.
-    - region=Europe: devuelve países europeos.
-    - region=Europe&q=fra: devuelve France.
-    """
-
     query = (q or "").strip().lower()
     selected_region = (region or "").strip()
-
-    # --------------------------------------------------
-    # 1. COUNTRIES BASE
-    # --------------------------------------------------
 
     if selected_region:
         countries = get_countries_for_region(
@@ -203,18 +212,12 @@ def search_countries(
     else:
         countries = list(COUNTRIES)
 
-    # --------------------------------------------------
-    # 2. COUNTRY SEARCH
-    # --------------------------------------------------
-
     if query:
-
         exact_matches = []
         prefix_matches = []
         contains_matches = []
 
         for country in countries:
-
             country_lower = country.lower()
 
             if country_lower == query:
@@ -238,21 +241,9 @@ def search_countries(
             key=str.lower,
         )
 
-    # --------------------------------------------------
-    # 3. REGIONS
-    # --------------------------------------------------
-
     if selected_region:
-
-        # Si ya hemos seleccionado una región,
-        # no necesitamos volver a mostrar todas
-        # las regiones.
-        regions = [
-            selected_region
-        ]
-
+        regions = [selected_region]
     else:
-
         regions = sorted(
             [
                 region_name
@@ -264,10 +255,6 @@ def search_countries(
             ],
             key=str.lower,
         )
-
-    # --------------------------------------------------
-    # 4. RESPONSE
-    # --------------------------------------------------
 
     return {
         "regions": regions,
@@ -281,43 +268,13 @@ def search_cities(
     country: str | None = None,
     db: Session = Depends(get_db),
 ):
-    """
-    City autocomplete.
-
-    Country is optional.
-
-    Examples:
-
-        /locations/cities?q=par
-
-        /locations/cities?q=par&country=France
-
-        /locations/cities?country=France
-
-    Uses:
-    1. Location catalog
-    2. Cities already stored in JobOffer
-    """
-
-    # --------------------------------------------------
-    # 1. NORMALIZE INPUT
-    # --------------------------------------------------
-
     city_query = (q or "").strip()
     selected_country = normalize_country(country)
-
-    # --------------------------------------------------
-    # 2. CATALOG
-    # --------------------------------------------------
 
     catalog_cities = get_cities(
         country=selected_country,
         query=city_query,
     )
-
-    # --------------------------------------------------
-    # 3. DATABASE
-    # --------------------------------------------------
 
     db_query = (
         db.query(JobOffer.city)
@@ -327,51 +284,31 @@ def search_cities(
         )
     )
 
-    # --------------------------------------------------
-    # COUNTRY FILTER
-    # --------------------------------------------------
-
     if selected_country:
-
         db_query = db_query.filter(
             JobOffer.country.ilike(
                 selected_country
             )
         )
 
-    # --------------------------------------------------
-    # CITY FILTER
-    # --------------------------------------------------
-
     if city_query:
-
         db_query = db_query.filter(
             JobOffer.city.ilike(
                 f"%{city_query}%"
             )
         )
 
-    # --------------------------------------------------
-    # DATABASE RESULTS
-    # --------------------------------------------------
-
     database_cities = [
         city
         for (city,) in (
             db_query
             .distinct()
-            .order_by(
-                JobOffer.city.asc()
-            )
+            .order_by(JobOffer.city.asc())
             .limit(100)
             .all()
         )
         if city
     ]
-
-    # --------------------------------------------------
-    # 4. MERGE CATALOG + DATABASE
-    # --------------------------------------------------
 
     cities = sorted(
         set(
@@ -381,14 +318,12 @@ def search_cities(
         key=str.lower,
     )
 
-    # --------------------------------------------------
-    # 5. RESPONSE
-    # --------------------------------------------------
-
     return cities[:50]
 
 
-
+# ============================================================
+# PUBLIC JOB DETAIL
+# ============================================================
 
 @router.get("/public/{job_id}")
 def obtener_oferta_publica(
@@ -430,8 +365,18 @@ def obtener_oferta_publica(
         ),
         "logo": job.logo,
         "source": job.source,
-        "match_score": job.match_score,
+
+        # --------------------------------------------------
+        # PUBLIC DETAIL
+        # --------------------------------------------------
+        # Never expose Match Score to unauthenticated users.
+        "match_score": None,
     }
+
+
+# ============================================================
+# AUTHENTICATED SEARCH
+# ============================================================
 
 @router.get("/search")
 def buscar_ofertas_usuario(
@@ -443,18 +388,22 @@ def buscar_ofertas_usuario(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(get_current_user),
 ):
-
     resultado = search_jobs_for_user(
-    db=db,
-    user_id=usuario.id,
-    search=keyword,
-    country=country,
-    city=city,
-    published=published,
-    work_type=workType,
+        db=db,
+        user_id=usuario.id,
+        search=keyword,
+        country=country,
+        city=city,
+        published=published,
+        work_type=workType,
     )
 
     return resultado["jobs"]
+
+
+# ============================================================
+# DEBUG
+# ============================================================
 
 @router.get("/debug/locations")
 def debug_locations(

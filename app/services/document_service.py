@@ -34,6 +34,21 @@ def listar_documentos(
     )
 
 
+def listar_cvs(
+    db: Session,
+    usuario_id: int,
+):
+    return (
+        db.query(Document)
+        .filter(
+            Document.usuario_id == usuario_id,
+            Document.tipo == "cv",
+        )
+        .order_by(Document.fecha_subida.desc())
+        .all()
+    )
+
+
 def buscar_documento(
     db: Session,
     documento_id: int,

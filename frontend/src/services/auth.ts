@@ -105,3 +105,44 @@ export async function resetPassword(
 
   return data
 }
+
+/* ============================================================
+   CHANGE PASSWORD
+   ============================================================ */
+
+   export async function changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const token = localStorage.getItem("token")
+  
+    if (!token) {
+      throw new Error("You must be logged in.")
+    }
+  
+    const response = await fetch(
+      `${API}/change-password`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      },
+    )
+  
+    const data = await response.json()
+  
+    if (!response.ok) {
+      throw new Error(
+        data.detail ||
+          "Could not change password.",
+      )
+    }
+  
+    return data
+  }

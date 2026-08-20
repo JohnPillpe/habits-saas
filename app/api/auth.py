@@ -10,17 +10,20 @@ from app.schemas.schemas import (
     UsuarioResponse,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    ChangePasswordRequest,
 )
 
 from app.core.auth import (
     hashear_password,
     verificar_password,
     crear_token,
+    get_current_user,
 )
 
 from app.services.password_reset_service import (
     request_password_reset,
     reset_password,
+    change_password,
 )
 
 
@@ -96,7 +99,7 @@ def login(
 
     token = crear_token(
         {
-            "sub": db_usuario.email,
+            "sub": db_usuario.email
         }
     )
 
@@ -157,4 +160,30 @@ def reset_password_endpoint(
             "Password updated successfully. "
             "You can now log in."
         )
+    }
+
+
+@router.post("/change-password")
+def change_password_endpoint(
+    request: ChangePasswordRequest,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    try:
+        change_password(
+            usuario,
+            request.current_password,
+            request.new_password,
+            db,
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        )
+
+    return {
+        "message": "Password changed successfully."
     }

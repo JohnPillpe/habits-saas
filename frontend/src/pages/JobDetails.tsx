@@ -49,28 +49,39 @@ export default function JobDetails() {
 
   const [descriptionExpanded, setDescriptionExpanded] =
     useState(false)
-
-
-  useEffect(() => {
-    async function loadJob() {
-      if (!id) return
-
-      try {
-        const data = await getJobById(id)
-
-        console.log("JOB DETAILS:", data)
-
-        setJob(data)
-      } catch (error) {
-        console.error(
-          "Could not load job:",
-          error,
-        )
+    
+    useEffect(() => {
+      async function loadJob() {
+        if (!id) return
+    
+        if (!/^\d+$/.test(id)) {
+          console.error(
+            "Invalid job route ID:",
+            id,
+          )
+          setJob(null)
+          return
+        }
+    
+        try {
+          const data = await getJobById(id)
+    
+          console.log(
+            "JOB DETAILS:",
+            data,
+          )
+    
+          setJob(data)
+        } catch (error) {
+          console.error(
+            "Could not load job:",
+            error,
+          )
+        }
       }
-    }
-
-    loadJob()
-  }, [id])
+    
+      loadJob()
+    }, [id])
 
 
   async function runAnalysis() {
