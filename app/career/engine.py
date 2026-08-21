@@ -1,5 +1,6 @@
 from app.career.cv_service import obtener_cv
 from app.career.analyzer import analizar_oferta
+
 from app.models.models import JobOffer
 
 from app.services.career_analysis_service import guardar_analisis
@@ -11,13 +12,15 @@ from app.career.cover_letter_generator import generar_cover_letter
 from app.services.cover_letter_service import guardar_cover_letter
 
 from app.career.application_answers import generar_respuestas
-from app.services.application_answers_service import guardar_application_answers
+from app.services.application_answers_service import (
+    guardar_application_answers,
+)
 
-from app.career.interview_preparation import generar_preparacion_entrevista
-from app.services.interview_preparation_service import guardar_interview_preparation
-
-from app.services.cv_job_match_service import (
-    calculate_cv_job_match,
+from app.career.interview_preparation import (
+    generar_preparacion_entrevista,
+)
+from app.services.interview_preparation_service import (
+    guardar_interview_preparation,
 )
 
 
@@ -28,18 +31,23 @@ def construir_job(oferta):
 
     return f"""
 Título:
+
 {oferta.titulo}
 
 Empresa:
+
 {oferta.empresa}
 
 Categoría:
+
 {oferta.categoria}
 
 Tags:
+
 {oferta.tags}
 
 Salario:
+
 {oferta.salario}
 """
 
@@ -49,6 +57,7 @@ def analizar_oferta_usuario(
     job_offer_id: int,
     db,
 ):
+
     # -----------------------------------
     # 1. CV
     # -----------------------------------
@@ -68,6 +77,7 @@ def analizar_oferta_usuario(
         db.query(JobOffer)
         .filter(
             JobOffer.id == job_offer_id,
+            JobOffer.usuario_id == usuario_id,
         )
         .first()
     )
@@ -90,30 +100,16 @@ def analizar_oferta_usuario(
     print("====================================\n")
 
     # -----------------------------------
-    # 3. AI ANALYSIS
+    # 3. OFFICIAL CV ↔ JOB ANALYSIS
     # -----------------------------------
+
+    # This is the ONLY official Match Score.
+    # It is semantic and is generated from the
+    # complete CV ↔ Job comparison.
 
     analisis = analizar_oferta(
         cv=cv,
         job=job,
-    )
-
-    # --------------------------------------------------
-    # OFFICIAL MATCH SCORE
-    # --------------------------------------------------
-
-    match_result = calculate_cv_job_match(
-        cv_text=cv,
-        job={
-            "title": oferta.titulo,
-            "description": oferta.descripcion,
-            "category": oferta.categoria,
-            "tags": oferta.tags,
-        },
-    )
-
-    analisis["match_score"] = (
-        match_result["match_score"]
     )
 
     guardar_analisis(
@@ -123,7 +119,7 @@ def analizar_oferta_usuario(
     )
 
     print("ANALYSIS GUARDADA:", oferta.id)
-    print("MATCH:", analisis.get("match_score"))
+    print("OFFICIAL MATCH:", analisis.get("match_score"))
 
     # -----------------------------------
     # 4. OPTIMIZED CV

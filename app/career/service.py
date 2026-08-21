@@ -1,13 +1,16 @@
 import os
 import json
+
 from openai import OpenAI
 
 from app.career.prompts import SYSTEM_PROMPT
+
 
 client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com/v1",
 )
+
 
 def analizar_cv_vs_job(cv: str, job: str):
 
@@ -73,18 +76,18 @@ Return ONLY valid JSON:
 
 Rules:
 
+- This endpoint analyzes the job itself.
+- It does NOT calculate the candidate's official CV-to-job Match Score.
 - recommendation must be one of:
   "Strong Match"
   "Good Match"
   "Possible Match"
   "Weak Match"
-
 - why must contain 3 concise reasons.
-
 - next_steps must contain practical actions the candidate should take before applying.
-
 - match_score must realistically reflect the job requirements.
 
+Return JSON only.
 """,
             },
             {
